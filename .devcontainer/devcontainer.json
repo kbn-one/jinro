@@ -10,10 +10,10 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"moonbit.moonbit-lang",
+				"rust-lang.rust-analyzer",
 				"bytecodealliance.wit-idl"
 			]
 		}
 	},
-	"postCreateCommand": "mise install; mise task install-moonbit"
+	"postCreateCommand": "mise install"
 }

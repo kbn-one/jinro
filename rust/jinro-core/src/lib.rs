@@ -1,6 +1,6 @@
 //! Jinro (werewolf) rule engine core.
 //!
-//! This crate is a port of the MoonBit `core/` package. It is deliberately
+//! The rules are specified in `docs/CORE_SPEC.md`. This crate is deliberately
 //! written in the subset of safe Rust that Charon + Aeneas translate to Lean:
 //!
 //! - creatures are identified by their index in `Village::roles` (no strings),
@@ -588,7 +588,7 @@ pub fn resolve_action(v: &Village, st: &mut DayState, a: &Action, guarded: Optio
                     if opt_eq(guarded, Some(t)) {
                         st.logs.push(private_log(a.actor, ActionType::Bite, Some(t), LogResult::Guarded));
                     } else {
-                        // NOTE: matches MoonBit. CORE_SPEC says a hamster
+                        // NOTE: CORE_SPEC says a hamster
                         // survives a bite, but this kills it.
                         st.logs.push(private_log(a.actor, ActionType::Bite, Some(t), LogResult::Dead));
                         add_death(st, t, ActionType::Bite);

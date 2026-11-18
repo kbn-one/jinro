@@ -1,4 +1,4 @@
-//! Ported from core/jinro_test.mbt (one test per MoonBit test block).
+//! Engine tests (originally ported from the former MoonBit test suite).
 
 use jinro_core::*;
 

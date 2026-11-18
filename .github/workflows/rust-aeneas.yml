@@ -2,9 +2,10 @@ name: rust + aeneas
 
 on:
   push:
-    paths: ["rust/**", ".github/workflows/rust-aeneas.yml"]
+    branches: [main]
+    paths: ["rust/**", "docs/**", ".github/workflows/rust-aeneas.yml"]
   pull_request:
-    paths: ["rust/**", ".github/workflows/rust-aeneas.yml"]
+    paths: ["rust/**", "docs/**", ".github/workflows/rust-aeneas.yml"]
   workflow_dispatch:
 
 env:
