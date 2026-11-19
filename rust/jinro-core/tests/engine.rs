@@ -182,11 +182,36 @@ fn private_logs_are_private() {
     assert_eq!(v1.days.len(), 1);
 }
 
-/// Documents the current behaviour, which disagrees with CORE_SPEC
-/// ("hamster survives bite"). Flip this assertion when the rule is fixed.
+/// CORE_SPEC: a hamster survives a bite, and the bite is only revealed
+/// after the game (Afterall log), not even to the wolf.
 #[test]
-fn spec_gap_hamster_dies_to_bite() {
-    let v0 = create_village(&vec![RoleType::Wolf, RoleType::Hamster, RoleType::Villager]);
-    let (_v1, r1, _) = day(&v0, vec![act(0, ActionType::Bite, 1)]);
+fn hamster_survives_bite() {
+    let v0 = create_village(&vec![
+        RoleType::Wolf,
+        RoleType::Hamster,
+        RoleType::Villager,
+        RoleType::Villager,
+    ]);
+    let (_v1, r1, t1) = day(&v0, vec![act(0, ActionType::Bite, 1)]);
+    assert!(r1.deaths.is_empty());
+    assert!(t1.creature_statuses[1].cause_of_death.is_none());
+    let bite: Vec<&Log> = r1
+        .logs
+        .iter()
+        .filter(|l| matches!(l.action_type, ActionType::Bite))
+        .collect();
+    assert_eq!(bite.len(), 1);
+    assert!(matches!(bite[0].receivers, Receivers::Afterall));
+    assert!(matches!(bite[0].result, Some(LogResult::Survived)));
+    // the wolf gets no in-game feedback
+    assert!(t1.creature_statuses[0].visible_logs.is_empty());
+}
+
+/// A seer's divine still kills a hamster.
+#[test]
+fn hamster_dies_to_divine() {
+    let v0 = create_village(&vec![RoleType::Seer, RoleType::Hamster, RoleType::Wolf, RoleType::Villager]);
+    let (_v1, r1, _) = day(&v0, vec![act(0, ActionType::Divine, 1)]);
     assert_eq!(r1.deaths.len(), 1);
+    assert!(matches!(r1.deaths[0].cause, ActionType::HamsterCurse));
 }

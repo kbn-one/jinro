@@ -76,6 +76,8 @@ pub enum LogResult {
     Partnered,
     Wolf,
     NonWolf,
+    /// The target survived (a bitten hamster).
+    Survived,
 }
 
 #[derive(Clone)]
@@ -554,6 +556,17 @@ fn love_log(actor: Cid, target: Cid, real: bool) -> Log {
     }
 }
 
+pub fn is_hamster(v: &Village, id: Cid) -> bool {
+    if id < v.roles.len() {
+        match v.roles[id] {
+            RoleType::Hamster => true,
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
 pub fn first_guard_target(actions: &Vec<Action>) -> Option<Cid> {
     let mut i = 0;
     let mut found: Option<Cid> = None;
@@ -587,9 +600,17 @@ pub fn resolve_action(v: &Village, st: &mut DayState, a: &Action, guarded: Optio
                 Some(t) => {
                     if opt_eq(guarded, Some(t)) {
                         st.logs.push(private_log(a.actor, ActionType::Bite, Some(t), LogResult::Guarded));
+                    } else if is_hamster(v, t) {
+                        // CORE_SPEC: a hamster survives a bite. Nobody learns
+                        // about it during the game (not even the wolf).
+                        st.logs.push(Log {
+                            receivers: Receivers::Afterall,
+                            action_type: ActionType::Bite,
+                            actor: Some(a.actor),
+                            target: Some(t),
+                            result: Some(LogResult::Survived),
+                        });
                     } else {
-                        // NOTE: CORE_SPEC says a hamster
-                        // survives a bite, but this kills it.
                         st.logs.push(private_log(a.actor, ActionType::Bite, Some(t), LogResult::Dead));
                         add_death(st, t, ActionType::Bite);
                     }
