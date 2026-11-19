@@ -441,12 +441,7 @@ export const JinroDemo = clientEntry(
                     const r = results[i];
                     return (
                       <div mix={dayStyle}>
-                        <h3>
-                          {i} 日目{" "}
-                          <span mix={mutedStyle}>
-                            (Day.dayNumber = {d.dayNumber})
-                          </span>
-                        </h3>
+                        <h3>{d.dayNumber} 日目</h3>
                         {r && (
                           <p mix={mutedStyle}>
                             処刑: {r.voted ? roleOf(r.voted) : "なし"} ／ 死者:
