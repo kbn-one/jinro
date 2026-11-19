@@ -10,7 +10,7 @@
  *
  * Two kinds of route live here and they are deployed differently:
  *
- * - **Pages** (`home`, `hydration`, `my`) are rendered to static HTML by the GitHub Pages build as
+ * - **Pages** (`home`, `wasm`, `my`) are rendered to static HTML by the GitHub Pages build as
  *   well as served from the static build by Cloudflare.
  * - **Server routes** (`jwks` and everything under `api`) only exist on the live server. Nothing
  *   links to them, so the static build's crawl never reaches them, and they are not in
@@ -26,19 +26,10 @@ export const routes = route(base, {
   home: get("/"),
   // [feature:jinro-demo] The wasm engine playground.
   wasm: get("/wasm"),
-  // [feature:hydration-demo]
-  hydration: get("/hydration"),
   // [feature:signin] (the push card on this page is [feature:push])
   my: get("/my"),
   // [feature:fullscreen]
   fullscreen: get("/fullscreen"),
-  // [feature:showcase]
-  showcase: get("/showcase"),
-  // [feature:spa]
-  spa: route("spa", {
-    /** One view of the SPA demo; the build generates each as its own static file. */
-    show: get("/:id"),
-  }),
   // [feature:blog]
   blog: route("blog", {
     index: get("/"),

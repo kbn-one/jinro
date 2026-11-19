@@ -49,7 +49,7 @@ async function serveLightpanda(port: number) {
 }
 
 Deno.test({
-  name: "lightpanda: /hydration の Counter がクリックで +1 される",
+  name: "lightpanda: /wasm の役職の人数ボタンがハイドレート後に効く",
   sanitizeResources: false,
   sanitizeOps: false,
   async fn() {
@@ -71,64 +71,41 @@ Deno.test({
         const context = await browser.createBrowserContext();
         const page = await context.newPage();
 
-        await page.goto(`http://127.0.0.1:${appPort}/hydration`);
+        await page.goto(`http://127.0.0.1:${appPort}/wasm`);
         await page.waitForFunction("globalThis.__rmxReady === true", {
           timeout: 10_000,
         });
 
-        const before = await page.$eval(
-          "output",
-          (el) => el.textContent?.trim() ?? "",
-        );
+        // The role counters are plain island state (no wasm involved), so they prove the SSR →
+        // chunk import → `handle.update()` path on their own.
+        const villagers = () =>
+          page.$eval("output", (el) => Number(el.textContent?.trim()));
+        const before = await villagers();
 
         await page.$eval(
-          'button[aria-label="increment"]',
+          'button[aria-label="村人を増やす"]',
           (el) => (el as HTMLButtonElement).click(),
         );
-
         await page.waitForFunction(
-          (prev: string) =>
-            document.querySelector("output")?.textContent?.trim() !== prev,
+          (prev: number) =>
+            Number(document.querySelector("output")?.textContent?.trim()) ===
+              prev + 1,
           { timeout: 5_000 },
           before,
         );
 
-        const after = await page.$eval(
-          "output",
-          (el) => el.textContent?.trim() ?? "",
-        );
-
-        assertEquals(Number(after), Number(before) + 1);
-
-        // The shared-total island is a separate entrypoint: it only moves if both resolved the
-        // click store to the same module instance. It is the sum of both counters (Left starts at
-        // `before`, Right at 0), so one increment makes it `before + 1`...
-        const total = () =>
-          page.$eval(
-            "output strong",
-            (el) => Number(el.textContent),
-          );
-        await page.waitForFunction(
-          (expected: number) =>
-            Number(document.querySelector("output strong")?.textContent) ===
-              expected,
-          { timeout: 5_000 },
-          Number(before) + 1,
-        );
-
-        // ...and a decrement takes it back down rather than counting another click.
         await page.$eval(
-          'button[aria-label="decrement"]',
+          'button[aria-label="村人を減らす"]',
           (el) => (el as HTMLButtonElement).click(),
         );
         await page.waitForFunction(
-          (expected: number) =>
-            Number(document.querySelector("output strong")?.textContent) ===
-              expected,
+          (prev: number) =>
+            Number(document.querySelector("output")?.textContent?.trim()) ===
+              prev,
           { timeout: 5_000 },
-          Number(before),
+          before,
         );
-        assertEquals(await total(), Number(before));
+        assertEquals(await villagers(), before);
 
         await page.close();
         await context.close();

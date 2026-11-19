@@ -42,8 +42,6 @@
     "npm:@remix-run/render-middleware@^1.1.0": "1.1.0_@emnapi+core@1.11.3_@emnapi+runtime@1.11.3",
     "npm:@remix-run/session@1": "1.0.1",
     "npm:@remix-run/session@^1.0.1": "1.0.1",
-    "npm:@remix-run/spa@^1.0.2": "1.0.2_@emnapi+core@1.11.3_@emnapi+runtime@1.11.3",
-    "npm:@remix-run/ui@~0.13.1": "0.13.1",
     "npm:@types/hast@^3.0.5": "3.0.5",
     "npm:@types/mdast@^4.0.4": "4.0.4",
     "npm:beautiful-mermaid@^1.1.3": "1.1.3",
@@ -1924,20 +1922,6 @@
     },
     "@remix-run/session@1.0.1": {
       "integrity": "sha512-EA3jOeD1nuUagYGbh4XT30QrUgszVnPyny0Lj0XiZB1r2HTM1H8nNLy7NymeMwYUJGkxuiALQgDium9DaxygQg=="
-    },
-    "@remix-run/spa@1.0.2_@emnapi+core@1.11.3_@emnapi+runtime@1.11.3": {
-      "integrity": "sha512-Idwb8tY33brdYl2IAPw1IBSIgfmUZyslYmKv3jr+dkJKgj+1n2SdsqdhVDCxe9q+XXKhdrf2lQcIpWVvaQqn0Q==",
-      "dependencies": [
-        "@remix-run/component",
-        "@remix-run/fetch-router",
-        "@remix-run/render-middleware"
-      ]
-    },
-    "@remix-run/ui@0.13.1": {
-      "integrity": "sha512-FbjoQqz20HqWAxLvacKu/a1437At0Ul468wN9uANTm6ae8HdneM3QsbPLg3mjPq/xX4tz1GHjQS1BMwe5rI9DA==",
-      "dependencies": [
-        "@remix-run/component"
-      ]
     },
     "@rolldown/binding-android-arm-eabi@1.3.3": {
       "integrity": "sha512-K1itOg1Xl50XyjLDa4qQZqaYsfiQbFbFRWXOEOupOsGr3whhm5ed4lgySd6Inohv2TB0+sdU4AxORKuS/TGang==",
@@ -4317,8 +4301,6 @@
       "npm:@remix-run/fetch-router@1",
       "npm:@remix-run/render-middleware@^1.1.0",
       "npm:@remix-run/session@^1.0.1",
-      "npm:@remix-run/spa@^1.0.2",
-      "npm:@remix-run/ui@~0.13.1",
       "npm:canvaskit-wasm@0.40",
       "npm:cf@1.0.0-beta.16",
       "npm:puppeteer-core@^23.11.1"

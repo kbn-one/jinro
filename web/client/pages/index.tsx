@@ -109,7 +109,7 @@ export default function Home(_handle: Handle) {
       </section>
 
       <p>
-        <a href={routes.hydration.href()}>Hydration のサンプル →</a>{" "}
+        <a href={routes.blog.index.href()}>ブログ →</a>{" "}
         <a href={routes.my.href()}>マイページ →</a>
       </p>
     </>

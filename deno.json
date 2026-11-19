@@ -80,8 +80,6 @@
     "@remix-run/fetch-router": "npm:@remix-run/fetch-router@^1.0.0",
     "@remix-run/render-middleware": "npm:@remix-run/render-middleware@^1.1.0",
     "@remix-run/session": "npm:@remix-run/session@^1.0.1",
-    "@remix-run/spa": "npm:@remix-run/spa@^1.0.2",
-    "@remix-run/ui": "npm:@remix-run/ui@^0.13.1",
     "@std/assert": "jsr:@std/assert@^1.0.19",
     "@std/front-matter": "jsr:@std/front-matter@^1.0.9",
     "canvaskit-wasm": "npm:canvaskit-wasm@^0.40.0",

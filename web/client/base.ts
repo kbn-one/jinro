@@ -18,11 +18,9 @@
  *   read and the prefix is not guessable from the URL: `/repo/preview/blog` and `/blog` are the
  *   same page under two deploys.
  *
- * The browser used to have no reason to ask — a prefix is a render-time value, and by the time a
- * page is on screen the prefix is already in its HTML. Client-side routing is what changed that:
- * `client/spa/app.tsx` matches `location.pathname` against the same route patterns the server
- * matches, and a router that thought the prefix was empty would fail to match every URL under a
- * sub-path deploy. Which is every pull request preview.
+ * The browser needs it for URLs it builds at runtime: the wasm demo (`client/jinro.ts`) fetches
+ * its core modules from `${base}/static/jinro/`, which under a sub-path deploy — every pull
+ * request preview — is not the root.
  *
  * ## Why the import is `/base` and not `/site`
  *
@@ -30,7 +28,7 @@
  * `/site` is the Deno half of that package — the file trees, the loader, `node:path` — so a module
  * the browser is given cannot reach for it without pulling Node built-ins into the bundle, and the
  * bundle then fails to load. It went unnoticed while nothing in a browser entrypoint imported
- * `routes.ts`; the SPA demo's router does. `/base` is those three string functions and no imports
+ * `routes.ts`. `/base` is those three string functions and no imports
  * at all.
  */
 
