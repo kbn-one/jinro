@@ -1,1 +1,13 @@
 *.wasm
+node_modules/
+web/dist/
+
+
+# APM dependencies
+apm.lock.yaml
+apm_modules/
+.claude/skills
+.github/skills
+web/worker-dist/
+.cloudflare/
+.wrangler/
