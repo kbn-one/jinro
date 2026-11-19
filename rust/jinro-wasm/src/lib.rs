@@ -226,7 +226,8 @@ fn village_out(src: &w::Village, v: &core_::Village) -> w::Village {
             .iter()
             .enumerate()
             .map(|(d, day)| w::Day {
-                day_number: (d + 1) as i32,
+                // 0-based, like `Today.day_number` and log ids: `days[d]` holds day `d`.
+                day_number: d as i32,
                 actions: day.actions.iter().map(|a| action_out(&ids, a)).collect(),
                 logs: day.logs.iter().enumerate().map(|(i, l)| log_out(&ids, d, i, l)).collect(),
             })

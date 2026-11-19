@@ -93,6 +93,8 @@ interface engine {
     log-result: option<log-result>,
   }
 
+  /// One processed cycle. `day-number` is 0-based and equals the index in `village.days`;
+  /// log ids are `"{day-number}-{index}"`.
   record day {
     day-number: s32,
     actions: list<action>,
@@ -119,6 +121,7 @@ interface engine {
     log-ids: list<log-id>,
   }
 
+  /// The day to play next: 0 right after `create-village`, then `village.days` length.
   record today {
     day-number: s32,
     winner: option<team>,

@@ -1,1 +1,17 @@
 *.wasm
+node_modules/
+web/dist/
+
+
+# APM dependencies
+apm.lock.yaml
+apm_modules/
+.claude/skills
+.github/skills
+web/worker-dist/
+.cloudflare/
+.wrangler/
+
+# jinro wasm for the browser (deno task wasm)
+web/client/jinro_wasm/
+web/client/static/jinro/

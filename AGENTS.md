@@ -13,6 +13,9 @@ jinro/
 │   ├── jinro-core/  # engine (Aeneas-friendly subset of Rust)
 │   ├── jinro-wasm/  # WASM component (wit-bindgen, wit/world.wit)
 │   └── lean/        # Lean proofs over the Aeneas translation
+├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
+│   ├── client/      # pages / islands; /wasm is the engine playground
+│   └── server/      # router, API, Cloudflare Worker (kept for later use)
 ├── bindings/
 │   ├── js/         # JavaScript/TypeScript bindings
 │   ├── python/     # Python bindings
@@ -152,6 +155,17 @@ while(today.winner is null){
 ### Ruby
 - Gem Package name: `jinro`
 - Use https://github.com/wasmerio/wasmer-ruby
+
+## Web (`web/`)
+
+- Derived from https://github.com/kuboon/deno-remix-tmpl; the template's
+  server side and sample features are kept as-is for now.
+- `deno task wasm` builds `rust/jinro-wasm` and transpiles it with jco into
+  `web/client/jinro_wasm/` (JS glue) and `web/client/static/jinro/` (core
+  wasm). Both are generated and git-ignored; run it before `deno task check`,
+  `deno task dev` or `deno task build`.
+- `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
+  create a village and step through days on the real wasm component.
 
 ## Development Flow
 
