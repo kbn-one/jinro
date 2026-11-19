@@ -215,3 +215,70 @@ fn hamster_dies_to_divine() {
     assert_eq!(r1.deaths.len(), 1);
     assert!(matches!(r1.deaths[0].cause, ActionType::HamsterCurse));
 }
+
+/// Dead creatures cannot vote: their ballots are ignored.
+#[test]
+fn dead_cannot_vote() {
+    let v0 = create_village(&vec![
+        RoleType::Villager,
+        RoleType::Villager,
+        RoleType::Villager,
+        RoleType::Wolf,
+        RoleType::Villager,
+    ]);
+    // day 1: creature 0 is executed
+    let (v1, r1, _) = day(
+        &v0,
+        vec![act(1, ActionType::Vote, 0), act(2, ActionType::Vote, 0), act(3, ActionType::Vote, 4)],
+    );
+    assert_eq!(r1.voted, Some(0));
+    // day 2: dead 0 votes for 2; the living split 1-1 between 3 and 4 -> tie
+    let (v2, r2, _) = day(
+        &v1,
+        vec![act(0, ActionType::Vote, 2), act(1, ActionType::Vote, 3), act(3, ActionType::Vote, 4)],
+    );
+    assert_eq!(r2.voted, None);
+    assert!(r2.deaths.is_empty());
+    // the dead creature's ballot is not recorded either
+    assert!(v2.days[1].actions.iter().all(|a| a.actor != 0));
+}
+
+/// Dead creatures cannot act: a dead wolf's bite does nothing.
+#[test]
+fn dead_cannot_act() {
+    let v0 = create_village(&vec![
+        RoleType::Wolf,
+        RoleType::Wolf,
+        RoleType::Villager,
+        RoleType::Villager,
+        RoleType::Villager,
+    ]);
+    let (v1, r1, _) = day(
+        &v0,
+        vec![act(2, ActionType::Vote, 0), act(3, ActionType::Vote, 0), act(4, ActionType::Vote, 0)],
+    );
+    assert_eq!(r1.voted, Some(0));
+    let (_v2, r2, _) = day(&v1, vec![act(0, ActionType::Bite, 2)]);
+    assert!(r2.deaths.is_empty());
+    assert!(r2.logs.is_empty());
+}
+
+/// A dead bodyguard's guard does not protect anyone.
+#[test]
+fn dead_bodyguard_cannot_guard() {
+    let v0 = create_village(&vec![
+        RoleType::Bodyguard,
+        RoleType::Wolf,
+        RoleType::Villager,
+        RoleType::Villager,
+        RoleType::Villager,
+    ]);
+    let (v1, r1, _) = day(
+        &v0,
+        vec![act(2, ActionType::Vote, 0), act(3, ActionType::Vote, 0), act(4, ActionType::Vote, 0)],
+    );
+    assert_eq!(r1.voted, Some(0));
+    let (_v2, r2, _) = day(&v1, vec![act(0, ActionType::Guard, 2), act(1, ActionType::Bite, 2)]);
+    assert_eq!(r2.deaths.len(), 1);
+    assert_eq!(r2.deaths[0].creature, 2);
+}

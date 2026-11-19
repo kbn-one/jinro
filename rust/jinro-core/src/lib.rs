@@ -659,6 +659,27 @@ pub fn resolve_action(v: &Village, st: &mut DayState, a: &Action, guarded: Optio
     }
 }
 
+/// An action counts only if its actor exists and is alive at the start of
+/// the day. Dead creatures can neither act nor vote.
+pub fn is_live_action(v: &Village, a: &Action) -> bool {
+    a.actor < v.roles.len() && is_alive(v, a.actor)
+}
+
+/// The submitted actions that count (see `is_live_action`), in order.
+pub fn live_actions(v: &Village, actions: &Vec<Action>) -> Vec<Action> {
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < actions.len() {
+        let a = &actions[i];
+        if is_live_action(v, a) {
+            // Field-by-field copy (not `clone`) keeps the Lean model simple.
+            out.push(Action { actor: a.actor, action_type: a.action_type, target: a.target });
+        }
+        i += 1;
+    }
+    out
+}
+
 pub fn resolve_actions(v: &Village, st: &mut DayState, actions: &Vec<Action>, guarded: Option<Cid>) {
     let mut i = 0;
     while i < actions.len() {
@@ -784,7 +805,11 @@ pub fn publish_deaths(st: &mut DayState) {
 }
 
 /// Resolve one full cycle (night actions + vote) and append it to the village.
-pub fn process_day(v: &Village, actions: &Vec<Action>) -> (Village, DayResult) {
+/// Actions by dead creatures are dropped first (`live_actions`), so they
+/// cannot guard, bite, divine, love or vote, and are not recorded in the day.
+pub fn process_day(v: &Village, submitted: &Vec<Action>) -> (Village, DayResult) {
+    let live = live_actions(v, submitted);
+    let actions = &live;
     let mut st = DayState { logs: Vec::new(), deaths: Vec::new() };
     let guarded = first_guard_target(actions);
     resolve_actions(v, &mut st, actions, guarded);
