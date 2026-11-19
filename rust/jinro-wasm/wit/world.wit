@@ -52,6 +52,7 @@ interface engine {
     partnered,
     wolf,
     non-wolf,
+    survived,
   }
 
   variant vote-rule {

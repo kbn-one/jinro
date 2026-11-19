@@ -101,6 +101,7 @@ fn result_in(r: w::LogResult) -> core_::LogResult {
         w::LogResult::Partnered => core_::LogResult::Partnered,
         w::LogResult::Wolf => core_::LogResult::Wolf,
         w::LogResult::NonWolf => core_::LogResult::NonWolf,
+        w::LogResult::Survived => core_::LogResult::Survived,
     }
 }
 
@@ -111,6 +112,7 @@ fn result_out(r: core_::LogResult) -> w::LogResult {
         core_::LogResult::Partnered => w::LogResult::Partnered,
         core_::LogResult::Wolf => w::LogResult::Wolf,
         core_::LogResult::NonWolf => w::LogResult::NonWolf,
+        core_::LogResult::Survived => w::LogResult::Survived,
     }
 }
 
