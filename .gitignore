@@ -11,3 +11,7 @@ apm_modules/
 web/worker-dist/
 .cloudflare/
 .wrangler/
+
+# jinro wasm for the browser (deno task wasm)
+web/client/jinro_wasm/
+web/client/static/jinro/

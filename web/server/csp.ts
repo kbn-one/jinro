@@ -4,7 +4,7 @@ import { csp, getCspNonce } from "@remix-run/csp-middleware";
  * The Content Security Policy for every HTML response: a "strict CSP". Scripts run only with this
  * request's nonce, and what they import from there is trusted (`'strict-dynamic'`), so the islands'
  * chunks, the helper's lazily imported chunk and the SPA runtime need no allowlist. Plugins and a
- * rewritten `<base>` are off.
+ * rewritten `<base>` are off; compiling wasm is allowed, `eval` is not.
  *
  * `csp()` makes the nonce; `render()` stamps it on what it generates (the import map, module
  * preloads, `css()` styles) and the shell (`client/layout.tsx`) puts it on the tags it authors.
@@ -12,7 +12,9 @@ import { csp, getCspNonce } from "@remix-run/csp-middleware";
  */
 export const contentSecurityPolicy = csp({
   policy: ({ nonce }) => ({
-    scriptSrc: [`'nonce-${nonce}'`, "'strict-dynamic'"],
+    // `'wasm-unsafe-eval'` lets the jinro demo compile its wasm (`client/jinro.ts`) without
+    // allowing JS `eval`. [feature:jinro-demo]
+    scriptSrc: [`'nonce-${nonce}'`, "'strict-dynamic'", "'wasm-unsafe-eval'"],
     objectSrc: ["'none'"],
     baseUri: ["'none'"],
   }),

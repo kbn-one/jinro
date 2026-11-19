@@ -3,9 +3,9 @@ import { css, type Handle } from "@remix-run/component";
 import { routes } from "../routes.ts";
 import { cardStyle } from "../theme.ts";
 
-export const title = "Remix3 on Deno Template";
+export const title = "jinro";
 export const description =
-  "Remix v3 + Deno reference app with a DPoP session middleware. Served live on Deno Deploy and statically on GitHub Pages.";
+  "人狼ゲームエンジン jinro (Rust → wasm、Lean で検証) の Web ページ。Remix v3 + Deno。";
 
 /** The shell places the sign-in island, so every page boots the runtime. */
 export const hydrate = true;
@@ -13,8 +13,23 @@ export const hydrate = true;
 export default function Home(_handle: Handle) {
   return () => (
     <>
-      <h1>Remix3 on Deno Template</h1>
-      <p>Deno + Remix v3 (fetch-router) リファレンス実装。</p>
+      <h1>jinro</h1>
+      <p>
+        人狼ゲームエンジン。ルールは Rust で書き、Aeneas で Lean
+        に変換して性質を証明し、wasm コンポーネントとして配布します。
+      </p>
+      <p>
+        <a href={routes.wasm.href()}>wasm デモ →</a>{" "}
+        ブラウザで村を作って 1 日ずつ進められます。
+      </p>
+
+      <h2>この Web アプリの土台</h2>
+      <p>
+        <a href="https://github.com/kuboon/deno-remix-tmpl">
+          deno-remix-tmpl
+        </a>{" "}
+        (Deno + Remix v3) から作っています。以下はテンプレのサンプル機能です。
+      </p>
       <p>
         デモ:{" "}
         <a href="https://kuboon.github.io/deno-remix-tmpl/">

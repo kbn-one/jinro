@@ -41,6 +41,7 @@ import { routes } from "../client/routes.ts";
 import { blogController } from "./blog/mod.tsx"; // [feature:blog]
 import * as Fullscreen from "../client/pages/fullscreen.tsx"; // [feature:fullscreen]
 import * as Home from "../client/pages/index.tsx";
+import * as Wasm from "../client/pages/wasm.tsx"; // [feature:jinro-demo]
 import * as Showcase from "../client/pages/showcase.tsx"; // [feature:showcase]
 import * as Spa from "../client/pages/spa.tsx"; // [feature:spa]
 import { versions } from "./versions.ts"; // [feature:showcase]
@@ -133,6 +134,7 @@ declare module "@remix-run/fetch-router" {
 const top = createController(routes, {
   actions: {
     home: pageAction(routes.home, Home),
+    wasm: pageAction(routes.wasm, Wasm), // [feature:jinro-demo]
     // [feature:fullscreen]
     fullscreen: pageAction(routes.fullscreen, Fullscreen),
     // [feature:showcase] Written out rather than built by `pageAction` because its badges are
@@ -257,6 +259,10 @@ export const entryPoints: readonly string[] = [
   "/",
   ...ogPaths(),
   "/sw.js", // [feature:push]
+  // [feature:jinro-demo] The core modules `client/jinro.ts` fetches at runtime (names are jco's).
+  "/static/jinro/jinro.core.wasm",
+  "/static/jinro/jinro.core2.wasm",
+  "/static/jinro/jinro.core3.wasm",
   // [feature:helper] The chat's chunk is only named by an attribute on the help button, which a
   // link-following crawl never reads — see `client/helper/install.ts`.
   `/${stripBase(clientRuntime.helper, base)}`,

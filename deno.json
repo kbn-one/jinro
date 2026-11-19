@@ -19,7 +19,11 @@
       "description": "Download the lightpanda binary used by test:browser (a pinned release, not nightly)",
       "command": "deno run -A npm:@lightpanda/browser install 1.0.3"
     },
-    "check": "deno task --cwd web/client check && deno task --cwd web/server check && deno check packages && deno lint && deno fmt --check"
+    "check": "deno task --cwd web/client check && deno task --cwd web/server check && deno check packages && deno lint && deno fmt --check",
+    "wasm": {
+      "description": "Build the jinro wasm component and transpile it with jco for the browser (web/client/jinro_wasm + web/client/static/jinro)",
+      "command": "cargo build --manifest-path rust/Cargo.toml -p jinro-wasm --target wasm32-wasip2 --release && rm -rf web/client/jinro_wasm web/client/static/jinro && deno run -A npm:@bytecodealliance/jco@1.42.0 transpile rust/target/wasm32-wasip2/release/jinro_wasm.wasm -o web/client/jinro_wasm --name jinro --instantiation async --quiet && deno run -R=web/client/jinro_wasm -W=web/client/jinro_wasm web/server/fix_jco_types.ts && mkdir -p web/client/static/jinro && mv web/client/jinro_wasm/jinro.core.wasm web/client/jinro_wasm/jinro.core2.wasm web/client/jinro_wasm/jinro.core3.wasm web/client/static/jinro/"
+    }
   },
   "permissions": {
     "default": {
@@ -54,16 +58,17 @@
     "jsxImportSource": "@remix-run/component"
   },
   "imports": {
+    "@bytecodealliance/preview2-shim": "npm:@bytecodealliance/preview2-shim@^0.31.1",
     "@cloudflare/build-output-utils": "npm:@cloudflare/build-output-utils@0.9.1",
     "@cloudflare/config": "npm:@cloudflare/config@0.25.0",
     "@kuboon/dpop": "jsr:@kuboon/dpop@^0.1.2",
     "@kuboon/kv": "jsr:@kuboon/kv@^0.2.0",
     "@kuboon/md": "jsr:@kuboon/md@^0.7.0",
-    "@remix-kbn/data-table-sqlite-turso": "jsr:@remix-kbn/data-table-sqlite-turso@^0.6.0",
     "@kuboon/share-element": "jsr:@kuboon/share-element@^0.5.0",
     "@libsql/client": "npm:@libsql/client@^0.17.4",
     "@lightpanda/browser": "npm:@lightpanda/browser@^1.6.0",
     "@remix-kbn/assets-deno": "jsr:@remix-kbn/assets-deno@^0.9.0",
+    "@remix-kbn/data-table-sqlite-turso": "jsr:@remix-kbn/data-table-sqlite-turso@^0.6.0",
     "@remix-kbn/helper-agent/agent/dummy": "jsr:@remix-kbn/helper-agent@^0.4.0/agent/dummy",
     "@remix-kbn/helper-agent/client": "jsr:@remix-kbn/helper-agent@^0.4.0/client",
     "@remix-kbn/helper-agent/controller": "jsr:@remix-kbn/helper-agent@^0.4.0/controller",
@@ -94,7 +99,8 @@
       "web/dist",
       "web/worker-dist",
       ".cloudflare",
-      "node_modules"
+      "node_modules",
+      "web/client/jinro_wasm"
     ]
   },
   "lint": {
@@ -107,7 +113,8 @@
       "web/dist",
       "web/worker-dist",
       ".cloudflare",
-      "node_modules"
+      "node_modules",
+      "web/client/jinro_wasm"
     ]
   }
 }

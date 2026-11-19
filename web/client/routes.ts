@@ -24,6 +24,8 @@ import { base } from "./base.ts";
 
 export const routes = route(base, {
   home: get("/"),
+  // [feature:jinro-demo] The wasm engine playground.
+  wasm: get("/wasm"),
   // [feature:hydration-demo]
   hydration: get("/hydration"),
   // [feature:signin] (the push card on this page is [feature:push])

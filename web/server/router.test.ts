@@ -7,12 +7,21 @@ Deno.test("GET / returns the shell with nav links and the runtime script", async
   assertStringIncludes(res.headers.get("content-type") ?? "", "text/html");
   const html = await res.text();
   assertStringIncludes(html, "<!DOCTYPE html>");
-  assertStringIncludes(html, "Remix3 on Deno Template");
+  assertStringIncludes(html, "jinro");
+  assertStringIncludes(html, 'href="/wasm"');
   assertStringIncludes(html, "kuboon.github.io/deno-remix-tmpl");
   assertStringIncludes(html, 'href="/hydration"');
   assertStringIncludes(html, '<script type="module" src="/assets/hydration');
   // Soft navigation is the runtime's default now; no frame target attributes.
   assert(!html.includes("rmx-target"));
+});
+
+Deno.test("GET /wasm places the jinro demo island", async () => {
+  const res = await router.fetch(new Request("http://x/wasm"));
+  assertEquals(res.status, 200);
+  const html = await res.text();
+  assertStringIncludes(html, "/assets/islands/jinro_demo");
+  assertStringIncludes(html, "wasm を読み込み中");
 });
 
 Deno.test("GET /hydration includes the Counter clientEntry marker", async () => {
