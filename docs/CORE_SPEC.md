@@ -3,6 +3,10 @@
 ## vote
 1日目 以降、全員が自分以外の生存者1人を選ぶ
 
+## 死者
+- 死者は投票も、役職のアクション (divine / guard / bite / love / fake_love) もできない
+- 死者が提出したアクションは無視され、その日の記録 (`Day.actions`) にも残らない
+
 ## Role-Specific Rules
 
 ### seer

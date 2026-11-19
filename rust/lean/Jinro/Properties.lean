@@ -14,6 +14,7 @@ Next targets (loops, need loop invariants):
 - `resolve_death_chain` terminates: each death is a distinct creature, so the
   loop runs at most `roles.len()` times.
 - `process_day` never revives anyone: `is_alive v' c → is_alive v c`.
+- (done, `Jinro/Liveness.lean`) `live_actions` keeps only actions whose actor is alive.
 - Information hiding: a creature only sees `All` logs and `Only` logs that list it.
 -/
 
