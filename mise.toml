@@ -6,15 +6,3 @@ deno = "latest"
 node = "latest"
 rust = "latest"
 
-[tasks.install-moonbit]
-description = "Install MoonBit compiler"
-run = "curl -fsSL https://raw.githubusercontent.com/moonbitlang/moonbit-compiler/refs/heads/main/install.ts | node"
-
-[tasks.wit-bindgen]
-run = "wit-bindgen moonbit wit/world.wit --out-dir . --derive-eq --derive-show --derive-error && moon fmt"
-
-[tasks.build-wasm]
-run = "moon build --target wasm"
-
-[tasks.build-comp]
-run = "wasm-tools component embed wit target/wasm/release/build/gen/gen.wasm --encoding utf16 --output jinro.wasm"

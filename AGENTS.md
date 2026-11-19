@@ -2,20 +2,24 @@
 
 ## Project Overview
 
-A monorepo for a werewolf (人狼) game engine with core logic implemented in MoonBit compiled to WASM, with bindings for JavaScript, Ruby, etc.
+A monorepo for a werewolf (人狼) game engine with core logic implemented in Rust (formally verified via Aeneas -> Lean) compiled to WASM, with bindings for JavaScript, Ruby, etc.
 
 ## Architecture
 
 ```
 jinro/
-├── core/           # MoonBit implementation (WASM)
+├── docs/CORE_SPEC.md   # rule specification
+├── rust/
+│   ├── jinro-core/  # engine (Aeneas-friendly subset of Rust)
+│   ├── jinro-wasm/  # WASM component (wit-bindgen, wit/world.wit)
+│   └── lean/        # Lean proofs over the Aeneas translation
 ├── bindings/
 │   ├── js/         # JavaScript/TypeScript bindings
 │   ├── python/     # Python bindings
 │   └── ruby/       # Ruby bindings
 ```
 
-## Core Module (MoonBit/WASM)
+## Core Module (Rust/WASM)
 
 ### Role System
 
@@ -43,7 +47,7 @@ Implemented roles:
 
 ### Core Functions
 
-```moonbit
+```
 type CreatureId = string
 type LogId = string
 enum Role
@@ -151,14 +155,15 @@ while(today.winner is null){
 
 ## Development Flow
 
-1. Implement core in MoonBit (`core/`)
-2. Write tests for core logic
-3. Build WASM: `moon build --target wasm`
-4. Implement bindings for each language
-5. Write tests for bindings
-6. CI/CD for automated build, publish
+1. Implement core in Rust (`rust/jinro-core`), staying within the Aeneas-translatable subset
+2. Write tests for core logic: `cd rust && cargo test -p jinro-core`
+3. Build WASM: `cd rust && cargo build -p jinro-wasm --target wasm32-wasip2 --release`
+4. Prove properties in Lean (`rust/lean`, via Charon -> Aeneas -> `lake build`)
+5. Implement bindings for each language
+6. Write tests for bindings
+7. CI/CD for automated build, publish
 
 ## References
 
 - Existing TypeScript implementation: https://github.com/kuboon/jinro.ts
-- MoonBit: https://www.moonbitlang.com/
+- Aeneas: https://github.com/AeneasVerif/aeneas
