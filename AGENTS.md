@@ -172,7 +172,8 @@ while(today.winner is null){
 - `deno task wasm:lean` builds `lean-engine/` with Lasm (needs Node 24+) into
   `web/client/static/jinro/jinro-lean.wasm`: the same JSON protocol, implemented
   in Lean (`Jinro/Engine.lean`, `Jinro/Wire.lean`), with proofs about that very
-  code in `Jinro/Proofs.lean` (checked whenever it builds).
+  code in `Jinro/Proofs.lean` (checked whenever it builds). Size breakdown:
+  `lean-engine/SIZE.md`.
   `web/server/engine_diff.test.ts` plays seeded random games on both engines and
   requires identical JSON responses; `deno task test` needs both built.
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you

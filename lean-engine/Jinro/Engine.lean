@@ -361,13 +361,11 @@ def canSee (l : Log) (viewer : Cid) (gameOver : Bool) : Bool :=
   | .afterall => gameOver
   | .only rs => rs.contains viewer
 
-def visibleLogs (v : Village) (viewer : Cid) (gameOver : Bool) : Array LogRef := Id.run do
-  let mut out := #[]
-  for h : d in [0:v.days.size] do
-    let day := v.days[d]
-    for h' : i in [0:day.logs.size] do
-      if canSee day.logs[i] viewer gameOver then out := out.push ⟨d, i⟩
-  return out
+/-- The logs `viewer` may see, as references into `v.days`, in order. -/
+def visibleLogs (v : Village) (viewer : Cid) (gameOver : Bool) : Array LogRef :=
+  v.days.zipIdx.flatMap fun (day, d) =>
+    day.logs.zipIdx.filterMap fun (l, i) =>
+      if canSee l viewer gameOver then some ⟨d, i⟩ else none
 
 def buildToday (v : Village) : Today :=
   let day := v.days.size
