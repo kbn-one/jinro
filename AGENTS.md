@@ -12,6 +12,7 @@ jinro/
 ├── rust/
 │   ├── jinro-core/  # engine (Aeneas-friendly subset of Rust)
 │   ├── jinro-wasm/  # WASM component (wit-bindgen, wit/world.wit)
+│   ├── jinro-wasi/  # WASI command: one JSON request on stdin -> one JSON response on stdout
 │   └── lean/        # Lean proofs over the Aeneas translation
 ├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
 │   ├── client/      # pages / islands; /wasm is the engine playground
@@ -160,10 +161,13 @@ while(today.winner is null){
 
 - Derived from https://github.com/kuboon/deno-remix-tmpl; the template's
   server side and sample features are kept as-is for now.
-- `deno task wasm` builds `rust/jinro-wasm` and transpiles it with jco into
-  `web/client/jinro_wasm/` (JS glue) and `web/client/static/jinro/` (core
-  wasm). Both are generated and git-ignored; run it before `deno task check`,
-  `deno task dev` or `deno task build`.
+- `deno task wasm` builds `rust/jinro-wasi` (wasm32-wasip1) into
+  `web/client/static/jinro/jinro.wasm` (generated, git-ignored); run it before
+  `deno task test`, `deno task dev` or `deno task build`.
+- `web/client/jinro.ts` runs that command per call through a minimal WASI
+  preview 1 implementation (`web/client/wasi.ts`): JSON in on stdin, JSON out
+  on stdout. No transpiler or shim package. The wire format is documented in
+  `rust/jinro-wasi/src/lib.rs`.
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
 
@@ -171,7 +175,8 @@ while(today.winner is null){
 
 1. Implement core in Rust (`rust/jinro-core`), staying within the Aeneas-translatable subset
 2. Write tests for core logic: `cd rust && cargo test -p jinro-core`
-3. Build WASM: `cd rust && cargo build -p jinro-wasm --target wasm32-wasip2 --release`
+3. Build WASM: `cd rust && cargo build -p jinro-wasi --target wasm32-wasip1 --release`
+   (the WIT component: `-p jinro-wasm --target wasm32-wasip2`)
 4. Prove properties in Lean (`rust/lean`, via Charon -> Aeneas -> `lake build`)
 5. Implement bindings for each language
 6. Write tests for bindings

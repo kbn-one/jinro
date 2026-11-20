@@ -1,38 +1,32 @@
 /**
- * The jco-transpiled jinro component (`deno task wasm`), called from Deno the way the browser
- * calls it in `client/jinro.ts`.
+ * The engine as the browser runs it (`client/jinro.ts` + `client/wasi.ts`), from Deno.
+ * Needs `deno task wasm` first.
  */
 
-import { assertEquals } from "@std/assert";
-import { WASIShim } from "@bytecodealliance/preview2-shim/instantiation";
+import { assertEquals, assertThrows } from "@std/assert";
 
-// @ts-types="../client/jinro_wasm/jinro.d.ts"
-import { instantiate } from "../client/jinro_wasm/jinro.js";
-import type { ImportObject } from "../client/jinro_wasm/jinro.d.ts";
+import { engineFrom } from "../client/jinro.ts";
 
-const wasmDir = new URL("../client/static/jinro/", import.meta.url);
+const engine = engineFrom(
+  await WebAssembly.compile(
+    await Deno.readFile(
+      new URL("../client/static/jinro/jinro.wasm", import.meta.url),
+    ),
+  ),
+);
 
-async function engine() {
-  const root = await instantiate(
-    async (path: string) =>
-      WebAssembly.compile(await Deno.readFile(new URL(path, wasmDir))),
-    new WASIShim().getImportObject() as unknown as ImportObject,
-  );
-  return root.engine;
-}
-
-Deno.test("Day.dayNumber is 0-based and matches Today.dayNumber and log ids", async () => {
-  const e = await engine();
+Deno.test("Day.dayNumber is 0-based and matches Today.dayNumber and log ids", () => {
   const roles = (["villager", "villager", "seer", "wolf"] as const).map((
     roleType,
   ) => ({ roleType, opts: [] }));
-  let [village, today] = e.createVillage(roles, { vote: { tag: "public" } });
+  let [village, today] = engine.createVillage(roles, {
+    vote: { tag: "public" },
+  });
   assertEquals(today.dayNumber, 0);
 
-  for (let n = 0; n < 2; n++) {
+  for (let day = 0; day < 2; day++) {
     const seer = today.creatureStatuses.find((s) => s.roleType === "seer")!;
-    const day = n;
-    [, village, today] = e.processDay(village, [
+    [, village, today] = engine.processDay(village, [
       { actor: seer.id, actionType: "divine", target: "c1" },
     ]);
     const last = village.days[village.days.length - 1];
@@ -41,4 +35,18 @@ Deno.test("Day.dayNumber is 0-based and matches Today.dayNumber and log ids", as
     assertEquals(today.dayNumber, day + 1);
   }
   assertEquals(village.days.map((d) => d.dayNumber), [0, 1]);
+});
+
+Deno.test("engine errors surface as thrown Errors", () => {
+  const [village] = engine.createVillage([{ roleType: "wolf", opts: [] }], {
+    vote: { tag: "public" },
+  });
+  assertThrows(
+    () =>
+      engine.processDay(village, [
+        { actor: "c9", actionType: "vote", target: "c1" },
+      ]),
+    Error,
+    "unknown creature id: c9",
+  );
 });

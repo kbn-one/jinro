@@ -1,61 +1,176 @@
 /**
- * The jinro engine in the browser: the wasm component from `rust/jinro-wasm`, transpiled by jco.
+ * The jinro engine in the browser (and in Deno tests): `rust/jinro-wasi`, a WASI command that
+ * answers one JSON request on stdin with one JSON response on stdout.
  *
- * `deno task wasm` builds the component and runs `jco transpile --instantiation async`, which
- * writes the JS glue to `jinro_wasm/` (bundled with the islands) and the core modules to
- * `static/jinro/` (fetched here). Both are generated and git-ignored.
+ * `deno task wasm` builds it to `static/jinro/jinro.wasm` (generated, git-ignored). This module
+ * fetches and compiles it once, then runs it per call with `wasi.ts` — no transpiler, no shim
+ * package. The engine is stateless (the village is the whole history), so a fresh instance per
+ * call loses nothing.
  *
- * The component imports a handful of WASI interfaces (stdio, clocks) that the engine itself never
- * really uses; the browser build of `@bytecodealliance/preview2-shim` answers them.
+ * The types below are the wire format, as written in `rust/jinro-wasi/src/lib.rs`.
  */
 
-import type { ImportObject } from "./jinro_wasm/jinro.d.ts";
-
 import { base } from "./base.ts";
+import { runWasi } from "./wasi.ts";
 
-export type * from "./jinro_wasm/interfaces/kuboon-jinro-engine.d.ts";
-export type Engine =
-  typeof import("./jinro_wasm/interfaces/kuboon-jinro-engine.d.ts");
+// ---- wire types (rust/jinro-wasi/src/lib.rs) -----------------------------------------------
+
+export type CreatureId = string;
+export type LogId = string;
+export type Team = "villagers" | "wolves" | "hamsters" | "lovers";
+export type ActionType =
+  | "vote"
+  | "unknown"
+  | "bite"
+  | "divine"
+  | "medium"
+  | "guard"
+  | "hamster-curse"
+  | "love"
+  | "lovers-suicide"
+  | "fake-love";
+export type CauseOfDeath = "executed" | "found-dead";
+export type RoleType =
+  | "villager"
+  | "seer"
+  | "bodyguard"
+  | "wolf"
+  | "madman"
+  | "lover"
+  | "bitch"
+  | "medium"
+  | "hamster";
+export type Receivers =
+  | { tag: "all" }
+  | { tag: "afterall" }
+  | { tag: "only"; val: CreatureId[] };
+export type LogResult = {
+  tag: "dead" | "guarded" | "partnered" | "wolf" | "non-wolf" | "survived";
+};
+export interface Rule {
+  vote: { tag: "public" | "private" };
+}
+export interface Role {
+  roleType: RoleType;
+  opts: [string, string][];
+}
+export interface Creature {
+  id: CreatureId;
+  role: Role;
+}
+export interface Action {
+  actor: CreatureId;
+  actionType: ActionType;
+  target?: CreatureId;
+}
+export interface Log {
+  id: LogId;
+  receivers: Receivers;
+  actionType: ActionType;
+  actor?: CreatureId;
+  target?: CreatureId;
+  logResult?: LogResult;
+}
+/** One processed cycle; `dayNumber` is 0-based and equals its index in `village.days`. */
+export interface Day {
+  dayNumber: number;
+  actions: Action[];
+  logs: Log[];
+}
+export interface Village {
+  rule: Rule;
+  creatures: Creature[];
+  days: Day[];
+}
+export interface AvailableAction {
+  actionType: ActionType;
+  targets: CreatureId[];
+}
+export interface CreatureStatus {
+  id: CreatureId;
+  roleType: RoleType;
+  team: Team;
+  availableActions: AvailableAction[];
+  causeOfDeath?: CauseOfDeath;
+  logIds: LogId[];
+}
+/** The day to play next: 0 right after `createVillage`, then `village.days.length`. */
+export interface Today {
+  dayNumber: number;
+  winner?: Team;
+  creatureStatuses: CreatureStatus[];
+}
+export interface DayResult {
+  voted?: CreatureId;
+  deads: CreatureId[];
+  logs: Log[];
+}
+
+// ---- the engine ----------------------------------------------------------------------------
+
+/** The engine's two operations. Both throw an `Error` with the engine's message on bad input. */
+export interface Engine {
+  createVillage(roles: Role[], rule: Rule): [Village, Today];
+  processDay(village: Village, actions: Action[]): [DayResult, Village, Today];
+}
+
+type Response<T> = { ok: T } | { error: string };
+
+/** Wraps a compiled `jinro.wasm` as an {@link Engine}. */
+export function engineFrom(module: WebAssembly.Module): Engine {
+  const call = <T>(request: object): T => {
+    const run = runWasi(
+      module,
+      new TextEncoder().encode(JSON.stringify(request)),
+    );
+    const text = new TextDecoder().decode(run.stdout);
+    let response: Response<T>;
+    try {
+      response = JSON.parse(text);
+    } catch {
+      const stderr = new TextDecoder().decode(run.stderr);
+      throw new Error(
+        `engine exited ${run.exitCode} without a response: ${stderr || text}`,
+      );
+    }
+    if ("error" in response) throw new Error(response.error);
+    return response.ok;
+  };
+  return {
+    createVillage(roles, rule) {
+      const r = call<{ village: Village; today: Today }>({
+        op: "createVillage",
+        roles,
+        rule,
+      });
+      return [r.village, r.today];
+    },
+    processDay(village, actions) {
+      const r = call<{ result: DayResult; village: Village; today: Today }>({
+        op: "processDay",
+        village,
+        actions,
+      });
+      return [r.result, r.village, r.today];
+    },
+  };
+}
 
 let engine: Promise<Engine> | null = null;
 
-/**
- * Instantiates the component once and hands out its `engine` export.
- *
- * The glue and the WASI shim are imported here, on first use, rather than at the top: the server
- * renders the island too, and evaluating the shim there (its Node build) is neither needed nor
- * allowed. The bundler splits them into a chunk of their own.
- */
+/** Fetches and compiles `jinro.wasm` once, and hands out the engine. */
 export function loadEngine(): Promise<Engine> {
   engine ??= (async () => {
-    const [{ instantiate }, { WASIShim }] = await Promise.all([
-      // @ts-types="./jinro_wasm/jinro.d.ts"
-      import("./jinro_wasm/jinro.js"),
-      import("@bytecodealliance/preview2-shim/instantiation"),
-    ]);
-    const root = await instantiate(
-      // Not `compileStreaming`: that insists on `application/wasm`, which not every static host
-      // (nor the dev file server) sends for `.wasm`.
-      async (path: string) => {
-        const res = await fetch(`${base}/static/jinro/${path}`);
-        if (!res.ok) throw new Error(`${res.status} ${res.url}`);
-        return WebAssembly.compile(await res.arrayBuffer());
-      },
-      new WASIShim().getImportObject() as unknown as ImportObject,
-    );
-    return root.engine;
+    // Not `compileStreaming`: that insists on `application/wasm`, which not every static host
+    // (nor the dev file server) sends for `.wasm`.
+    const res = await fetch(`${base}/static/jinro/jinro.wasm`);
+    if (!res.ok) throw new Error(`${res.status} ${res.url}`);
+    return engineFrom(await WebAssembly.compile(await res.arrayBuffer()));
   })();
   return engine;
 }
 
-/** The message of a thrown engine error: a WIT `data-error` payload, or a plain `Error`. */
+/** The message of a thrown engine error. */
 export function errorMessage(e: unknown): string {
-  if (e && typeof e === "object" && "payload" in e) {
-    const payload = (e as { payload: unknown }).payload;
-    if (payload && typeof payload === "object" && "val" in payload) {
-      return String((payload as { val: unknown }).val);
-    }
-    return JSON.stringify(payload);
-  }
   return e instanceof Error ? e.message : String(e);
 }

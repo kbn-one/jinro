@@ -21,15 +21,18 @@ jobs:
         working-directory: rust
     steps:
       - uses: actions/checkout@v4
-      - run: rustup target add wasm32-wasip2
-      - run: cargo test -p jinro-core
+      - run: rustup target add wasm32-wasip2 wasm32-wasip1
+      - run: cargo test -p jinro-core -p jinro-wasi
+      - run: cargo build -p jinro-wasi --target wasm32-wasip1 --release
       - run: cargo build -p jinro-wasm --target wasm32-wasip2 --release
       - name: Size
-        run: ls -l target/wasm32-wasip2/release/jinro_wasm.wasm
+        run: ls -l target/wasm32-wasip2/release/jinro_wasm.wasm target/wasm32-wasip1/release/jinro.wasm
       - uses: actions/upload-artifact@v4
         with:
           name: jinro-wasm
-          path: rust/target/wasm32-wasip2/release/jinro_wasm.wasm
+          path: |
+            rust/target/wasm32-wasip2/release/jinro_wasm.wasm
+            rust/target/wasm32-wasip1/release/jinro.wasm
 
   verify:
     runs-on: ubuntu-latest

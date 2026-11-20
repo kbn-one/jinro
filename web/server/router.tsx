@@ -183,10 +183,8 @@ export const entryPoints: readonly string[] = [
   "/",
   ...ogPaths(),
   "/sw.js", // [feature:push]
-  // [feature:jinro-demo] The core modules `client/jinro.ts` fetches at runtime (names are jco's).
-  "/static/jinro/jinro.core.wasm",
-  "/static/jinro/jinro.core2.wasm",
-  "/static/jinro/jinro.core3.wasm",
+  // [feature:jinro-demo] The engine `client/jinro.ts` fetches at runtime.
+  "/static/jinro/jinro.wasm",
   // [feature:helper] The chat's chunk is only named by an attribute on the help button, which a
   // link-following crawl never reads — see `client/helper/install.ts`.
   `/${stripBase(clientRuntime.helper, base)}`,

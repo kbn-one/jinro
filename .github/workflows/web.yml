@@ -14,8 +14,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      # The jinro wasm demo imports the jco output, so it has to exist before check/build.
-      - run: rustup target add wasm32-wasip2
+      # The jinro wasm demo needs the engine built (web/client/static/jinro/jinro.wasm).
+      - run: rustup target add wasm32-wasip1
       - run: deno task wasm
       - run: deno task check
       - run: deno task test

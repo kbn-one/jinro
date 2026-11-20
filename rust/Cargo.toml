@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["jinro-core", "jinro-wasm"]
+members = ["jinro-core", "jinro-wasm", "jinro-wasi"]
 
 [profile.release]
 opt-level = "s"

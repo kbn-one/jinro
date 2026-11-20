@@ -14,9 +14,9 @@ export default function Wasm(_handle: Handle) {
     <>
       <h1>wasm デモ</h1>
       <p>
-        <code>rust/jinro-wasm</code>{" "}
-        の wasm コンポーネントを jco で JS
-        に変換し、ブラウザだけで動かしています。
+        <code>rust/jinro-wasi</code>{" "}
+        を WASI のコマンドとして wasm にビルドし、標準入力に JSON
+        を渡して標準出力の JSON を受け取る形で、ブラウザだけで動かしています。
         村を作り、各キャラクターの行動を選んで 1 日ずつ進めると、
         <code>createVillage</code> / <code>processDay</code>{" "}
         の入出力とログを確認できます。
