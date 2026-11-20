@@ -5,7 +5,7 @@ import { cardStyle } from "../theme.ts";
 
 export const title = "jinro";
 export const description =
-  "人狼ゲームエンジン jinro (Rust → wasm、Lean で検証) の Web ページ。Remix v3 + Deno。";
+  "人狼ゲームエンジン jinro (Lean で書いて証明し、wasm で動かす) の Web ページ。Remix v3 + Deno。";
 
 /** The shell places the sign-in island, so every page boots the runtime. */
 export const hydrate = true;
@@ -15,8 +15,8 @@ export default function Home(_handle: Handle) {
     <>
       <h1>jinro</h1>
       <p>
-        人狼ゲームエンジン。ルールは Rust で書き、Aeneas で Lean
-        に変換して性質を証明し、wasm コンポーネントとして配布します。
+        人狼ゲームエンジン。ルールを Lean で書いて性質を証明し、Lasm で wasm
+        にコンパイルして配布します。
       </p>
       <p>
         <a href={routes.wasm.href()}>wasm デモ →</a>{" "}

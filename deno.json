@@ -21,8 +21,8 @@
     },
     "check": "deno task --cwd web/client check && deno task --cwd web/server check && deno check packages && deno lint && deno fmt --check",
     "wasm": {
-      "description": "Build the jinro wasm component and transpile it with jco for the browser (web/client/jinro_wasm + web/client/static/jinro)",
-      "command": "cargo build --manifest-path rust/Cargo.toml -p jinro-wasm --target wasm32-wasip2 --release && rm -rf web/client/jinro_wasm web/client/static/jinro && deno run -A npm:@bytecodealliance/jco@1.42.0 transpile rust/target/wasm32-wasip2/release/jinro_wasm.wasm -o web/client/jinro_wasm --name jinro --instantiation async --quiet && deno run -R=web/client/jinro_wasm -W=web/client/jinro_wasm web/server/fix_jco_types.ts && mkdir -p web/client/static/jinro && mv web/client/jinro_wasm/jinro.core.wasm web/client/jinro_wasm/jinro.core2.wasm web/client/jinro_wasm/jinro.core3.wasm web/client/static/jinro/"
+      "description": "Build the engine (lean-engine, Lean via Lasm; needs Node 24+) into web/client/static/jinro/jinro.wasm",
+      "command": "cd lean-engine && npm ci --no-audit --no-fund && npm run -s build && mkdir -p ../web/client/static/jinro && cp wasi/main.wasm ../web/client/static/jinro/jinro.wasm"
     }
   },
   "permissions": {
@@ -58,7 +58,6 @@
     "jsxImportSource": "@remix-run/component"
   },
   "imports": {
-    "@bytecodealliance/preview2-shim": "npm:@bytecodealliance/preview2-shim@^0.31.1",
     "@cloudflare/build-output-utils": "npm:@cloudflare/build-output-utils@0.9.1",
     "@cloudflare/config": "npm:@cloudflare/config@0.25.0",
     "@kuboon/dpop": "jsr:@kuboon/dpop@^0.1.2",
@@ -89,7 +88,6 @@
   },
   "fmt": {
     "exclude": [
-      "rust",
       "docs",
       "AGENTS.md",
       ".vscode",
@@ -98,12 +96,11 @@
       "web/worker-dist",
       ".cloudflare",
       "node_modules",
-      "web/client/jinro_wasm"
+      "lean-engine"
     ]
   },
   "lint": {
     "exclude": [
-      "rust",
       "docs",
       "AGENTS.md",
       ".vscode",
@@ -112,7 +109,7 @@
       "web/worker-dist",
       ".cloudflare",
       "node_modules",
-      "web/client/jinro_wasm"
+      "lean-engine"
     ]
   }
 }

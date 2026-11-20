@@ -87,7 +87,11 @@ Deno.test("GET /.well-known/jwks.json publishes the RP key", async () => {
 for (
   const [path, needle] of [
     ["/blog", "Blog"],
-    ["/blog/2026-11-19-status", "jinro の近況"],
+    [
+      "/blog/2026-11-19-moonbit-to-rust-aeneas",
+      "MoonBit をやめて Rust + Aeneas へ",
+    ],
+    ["/blog/2026-11-20-rust-to-lean-lasm", "Rust をやめて Lean + Lasm へ"],
   ] as const
 ) {
   Deno.test(`GET ${path} renders inside the shell`, async () => {

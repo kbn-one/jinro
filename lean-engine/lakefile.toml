@@ -1,0 +1,7 @@
+name = "jinro"
+defaultTargets = ["Jinro"]
+
+# The jinro engine written directly in Lean. `Main.lean` is the WASI command
+# Lasm builds (`deno task wasm`); `Jinro.Proofs` is checked at that build.
+[[lean_lib]]
+name = "Jinro"

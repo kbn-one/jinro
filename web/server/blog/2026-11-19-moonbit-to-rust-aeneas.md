@@ -1,7 +1,7 @@
 ---
-title: jinro の近況 — Rust・Lean・wasm
+title: MoonBit をやめて Rust + Aeneas へ
 date: "2026-11-19"
-summary: コアを Rust に一本化し、Lean での検証と wasm のブラウザデモが動き始めました。
+summary: コアを MoonBit から Rust に移し、Aeneas 経由の Lean での検証と wasm のブラウザデモが動き始めました。
 ---
 
 人狼エンジン jinro のコアを MoonBit から Rust に移しました。Rust のコードは

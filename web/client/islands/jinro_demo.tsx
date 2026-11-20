@@ -107,6 +107,8 @@ export const JinroDemo = clientEntry(
   function JinroDemo(handle: Handle) {
     let engine: Engine | null = null;
     let loadError: string | null = null;
+    /** How long the last engine call took, in ms. */
+    let elapsed: number | null = null;
 
     let counts: Record<RoleType, number> = fromPreset(PRESETS[0].counts);
     let village: Village | null = null;
@@ -117,7 +119,9 @@ export const JinroDemo = clientEntry(
     /** Chosen target per `${actor}|${actionType}`; cleared every day. */
     let choices = new Map<string, string>();
     let jsonInput: HTMLTextAreaElement | null = null;
-    let lastCall: { fn: string; input: unknown; output: unknown } | null = null;
+    let lastCall:
+      | { fn: string; input: unknown; output: unknown }
+      | null = null;
 
     handle.queueTask(async () => {
       try {
@@ -128,6 +132,16 @@ export const JinroDemo = clientEntry(
       handle.update();
     });
 
+    /** Runs one engine call, timing it. */
+    const timed = <T,>(f: () => T): T => {
+      const t0 = performance.now();
+      try {
+        return f();
+      } finally {
+        elapsed = performance.now() - t0;
+      }
+    };
+
     const create = () => {
       if (!engine) return;
       const roles = ROLES.flatMap((r) =>
@@ -135,7 +149,8 @@ export const JinroDemo = clientEntry(
       );
       const rule = { vote: { tag: "public" as const } };
       try {
-        const [v, t] = engine.createVillage(roles, rule);
+        const e = engine;
+        const [v, t] = timed(() => e.createVillage(roles, rule));
         village = v;
         today = t;
         results = [];
@@ -165,8 +180,13 @@ export const JinroDemo = clientEntry(
     const step = (actions: Action[]) => {
       if (!engine || !village) return;
       try {
-        const [r, v, t] = engine.processDay(village, actions);
-        lastCall = { fn: "processDay", input: { actions }, output: [r, v, t] };
+        const e = engine, current = village;
+        const [r, v, t] = timed(() => e.processDay(current, actions));
+        lastCall = {
+          fn: "processDay",
+          input: { actions },
+          output: [r, v, t],
+        };
         village = v;
         today = t;
         results = [...results, r];
@@ -477,6 +497,7 @@ export const JinroDemo = clientEntry(
             <section mix={panelStyle}>
               <h2>
                 最後の呼び出し: <code>{lastCall.fn}</code>
+                {elapsed !== null && `（${elapsed.toFixed(2)} ms）`}
               </h2>
               <details>
                 <summary>入力</summary>
