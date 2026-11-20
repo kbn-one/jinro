@@ -93,12 +93,6 @@ export interface LayoutProps {
    * `render()` stamps the ones it generates. Absent for a render with no `csp()` in front of it.
    */
   nonce?: string;
-  /**
-   * Render the shell's links as document navigations — see {@link ShellProps.documentLinks}.
-   *
-   * [feature:spa] delete this prop with the feature — see TEMPLATE.md.
-   */
-  documentLinks?: boolean;
   children: RemixNode;
 }
 
@@ -155,7 +149,7 @@ export function Layout(handle: Handle<LayoutProps>) {
   return () => {
     const props = handle.props;
 
-    // `lang="ja"`: the app pages (`/my`, `/hydration`) are Japanese; the demo pages brought over
+    // `lang="ja"`: the app pages (`/my`, `/wasm`) are Japanese; the demo pages brought over
     // from the SSG starter are English. A site writing in one language changes this attribute.
     return (
       <html lang="ja">
@@ -185,8 +179,7 @@ export function Layout(handle: Handle<LayoutProps>) {
           {
             /*
             The deploy prefix, for the browser. It cannot work this out for itself — `/repo/blog`
-            and `/blog` are the same page under two deploys — and `client/spa/app.tsx` matches URLs
-            against route patterns that carry it. See `client/base.ts`.
+            and `/blog` are the same page under two deploys. See `client/base.ts`.
           */
           }
           <meta name={BASE_META_NAME} content={base} />
@@ -208,7 +201,6 @@ export function Layout(handle: Handle<LayoutProps>) {
         <body>
           {props.bare ? props.children : (
             <Shell
-              documentLinks={props.documentLinks}
               helper={props.script?.helper ?? null}
             >
               {props.children}
@@ -234,22 +226,6 @@ export function Layout(handle: Handle<LayoutProps>) {
 export interface ShellProps {
   children: RemixNode;
   /**
-   * Render the shell's own links as document navigations.
-   *
-   * [feature:spa] delete this prop with the feature — see TEMPLATE.md.
-   *
-   * Every link here is a soft navigation by default, which is what the rest of the site wants. A
-   * page whose `<body>` belongs to a client router is the exception, in both directions:
-   *
-   * - **Leaving it**, which is what this prop is for: the runtime would route a click on `Blog`
-   *   through *that* router, which has never heard of `/blog`.
-   * - **Entering it**, which the `SPA` link below handles on its own, because it has to be a
-   *   document load from every page rather than only from these.
-   *
-   * `data-rmx-document` hands the navigation back to the browser in both cases.
-   */
-  documentLinks?: boolean;
-  /**
    * The chat's chunk URL, or `null` for a page that ships no JavaScript — see `client/helper/`.
    *
    * Doubles as whether to render the button at all, which is the same question: the button is
@@ -262,64 +238,33 @@ export interface ShellProps {
 /**
  * Everything inside `<body>`: the header, the page, and the footer.
  *
- * Split out of {@link Layout} because it is rendered by two different things. The server renders it
- * as part of the document; `client/spa/app.tsx` renders it again in the browser, because a
- * `@remix-run/spa` router owns the whole of `<body>` and would otherwise replace the shell with
- * nothing. Both place this component, so there is one shell and not two that have to agree.
- *
  * `<head>` is deliberately not in here. It stays the server's — the title, the social card and the
  * stylesheet are what a crawler and a link preview read, and neither runs the page.
  *
- * @param handle The page to wrap, and how its links navigate
+ * @param handle The page to wrap
  * @returns The body's contents
  */
 export function Shell(handle: Handle<ShellProps>) {
   return () => {
-    // `undefined` rather than `false`: an attribute set to "false" is still an attribute, and the
-    // runtime looks for its presence.
-    const document = handle.props.documentLinks ? "" : undefined;
-
     return (
       <>
         <header mix={[bandStyle, headerStyle]}>
           <a
             mix={brandStyle}
             href={routes.home.href()}
-            data-rmx-document={document}
           >
             jinro
           </a>
           <nav mix={navStyle}>
-            <a href={routes.home.href()} data-rmx-document={document}>Home</a>
+            <a href={routes.home.href()}>Home</a>
             {/* [feature:jinro-demo] */}
-            <a href={routes.wasm.href()} data-rmx-document={document}>wasm</a>
-            <a href={routes.hydration.href()} data-rmx-document={document}>
-              Hydration
-            </a>
-            <a href={routes.blog.index.href()} data-rmx-document={document}>
+            <a href={routes.wasm.href()}>wasm</a>
+            <a href={routes.blog.index.href()}>
               Blog
             </a>
             {/* [feature:fullscreen] */}
-            <a href={routes.fullscreen.href()} data-rmx-document={document}>
+            <a href={routes.fullscreen.href()}>
               Fullscreen
-            </a>
-            {/* [feature:showcase] */}
-            <a href={routes.showcase.href()} data-rmx-document={document}>
-              UI showcase
-            </a>
-            {
-              /*
-              [feature:spa]
-
-              Always a document navigation, on every page — not just on the ones `documentLinks`
-              covers. A document gets one runtime, and this link leads to the page that boots the
-              other one: reached by a soft navigation, the demo's `run()` would arrive in a document
-              `hydration.ts` already owns, never take over, and leave every link on it loading pages
-              the slow way. Entering a page that starts a different runtime is a document load.
-            */
-            }
-            <a href={routes.spa.show.href({ id: "1" })} data-rmx-document="">
-              SPA
             </a>
             {
               /*
@@ -347,14 +292,7 @@ export function Shell(handle: Handle<ShellProps>) {
               )
               : null}
             {/* [feature:signin] */}
-            {handle.props.documentLinks
-              ? (
-                // A `@remix-run/spa` router renders this shell in the browser and has no way to
-                // hydrate an island, so the sign-in island is replaced by a plain link that leaves
-                // the client router. `/my` has the real control.
-                <a href={routes.my.href()} data-rmx-document="">Sign in</a>
-              )
-              : <NavAuth myHref={routes.my.href()} />}
+            <NavAuth myHref={routes.my.href()} />
           </nav>
         </header>
         <main mix={[bandStyle, mainStyle]}>{handle.props.children}</main>

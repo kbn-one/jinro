@@ -61,19 +61,8 @@ const replies = [
         "in the browser. A page opts in with `export const hydrate = true`, places the island, " +
         'and the shell writes one `<script type="module">` for the whole page. Every island is ' +
         "compiled as one graph, so two of them that import the same module get the same instance " +
-        "— the two counters on the home page and the total below them are exactly that. A " +
+        "— the wasm playground on `/wasm` is one such island. A " +
         "page that places none, like the blog listing, ships no JavaScript at all.",
-    },
-  },
-  {
-    match: /spa|client.?side rout/i,
-    turn: {
-      text:
-        "The SPA link in the header goes to a demo where a real `@remix-run/fetch-router` runs in " +
-        "the browser: the three views route without a request, and the counter on screen shows " +
-        "how many times it has. It is a document load to get in and out of, because a document " +
-        "gets one runtime and that page starts a different one from the rest of the site. This " +
-        "chat uses the same trick — see below.",
     },
   },
   {
@@ -128,15 +117,6 @@ const replies = [
     },
   },
   {
-    match: /showcase|components?|remix.?ui/i,
-    turn: {
-      text:
-        "The UI showcase has the headless `@remix-run/ui` primitives and animation helpers on one page, each a live island with " +
-        "controls to change its parameters. It is also the page that proves the bundling works: " +
-        "eighteen islands, one runtime.",
-    },
-  },
-  {
     match: /fullscreen|game|canvas|viewport|safe area|notch/i,
     turn: {
       text:
@@ -172,7 +152,7 @@ function fallback(input: AgentInput): DummyTurn {
   return {
     text:
       "I only know a handful of things about this site, because I am a script rather than a " +
-      "model — ask me about the static build, islands and hydration, the SPA demo, the " +
+      "model — ask me about the static build, islands and hydration, the " +
       "blog, the social cards, deploying to GitHub Pages, or this chat itself. You can also ask " +
       "“what page am I on?”, or tell me about a bug and I will open a report.",
   };

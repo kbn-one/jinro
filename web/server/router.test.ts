@@ -10,7 +10,7 @@ Deno.test("GET / returns the shell with nav links and the runtime script", async
   assertStringIncludes(html, "jinro");
   assertStringIncludes(html, 'href="/wasm"');
   assertStringIncludes(html, "kuboon.github.io/deno-remix-tmpl");
-  assertStringIncludes(html, 'href="/hydration"');
+  assertStringIncludes(html, 'href="/blog"');
   assertStringIncludes(html, '<script type="module" src="/assets/hydration');
   // Soft navigation is the runtime's default now; no frame target attributes.
   assert(!html.includes("rmx-target"));
@@ -22,15 +22,6 @@ Deno.test("GET /wasm places the jinro demo island", async () => {
   const html = await res.text();
   assertStringIncludes(html, "/assets/islands/jinro_demo");
   assertStringIncludes(html, "wasm を読み込み中");
-});
-
-Deno.test("GET /hydration includes the Counter clientEntry marker", async () => {
-  const res = await router.fetch(new Request("http://x/hydration"));
-  assertEquals(res.status, 200);
-  const html = await res.text();
-  assertStringIncludes(html, "/assets/islands/counter");
-  assertStringIncludes(html, "Counter");
-  assertStringIncludes(html, 'aria-label="increment"');
 });
 
 Deno.test("GET /my embeds idp-origin meta", async () => {
@@ -96,9 +87,7 @@ Deno.test("GET /.well-known/jwks.json publishes the RP key", async () => {
 for (
   const [path, needle] of [
     ["/blog", "Blog"],
-    ["/blog/hello-remix-ssg", "Hello, remix-ssg"],
-    ["/showcase", "showcase"],
-    ["/spa/1", "SPA"],
+    ["/blog/2026-11-19-status", "jinro の近況"],
   ] as const
 ) {
   Deno.test(`GET ${path} renders inside the shell`, async () => {
@@ -118,14 +107,8 @@ Deno.test("GET /fullscreen is a bare page with no shell", async () => {
   assertStringIncludes(html, "FullscreenGame");
 });
 
-Deno.test("GET /spa/unknown is a 404", async () => {
-  const res = await router.fetch(new Request("http://x/spa/nope"));
-  assertEquals(res.status, 404);
-  await res.body?.cancel();
-});
-
 Deno.test("HTML responses carry a nonce-based CSP, and every executable tag has the nonce", async () => {
-  for (const path of ["/", "/hydration", "/my", "/spa/1"]) {
+  for (const path of ["/", "/wasm", "/my"]) {
     const res = await router.fetch(new Request(`http://x${path}`));
     const policy = res.headers.get("content-security-policy") ?? "";
     const nonce = policy.match(/'nonce-([^']+)'/)?.[1];

@@ -21,7 +21,9 @@ deno task test:browser    # root から
 
 ## カバー範囲
 
-- `browser_hydration.test.ts` — `/hydration` を開き、`globalThis.__rmxReady`
-  が立つまで待ってから `button[aria-label="increment"]` をクリックし、`<output>`
-  の数値が +1 される事を assert する。SSR → chunk の動的 import →
-  `handle.update()` のフル経路を exercise する。
+- `browser_hydration.test.ts` — `/wasm` を開き、`globalThis.__rmxReady`
+  が立つまで待ってから役職の人数ボタン（村人 +/−）をクリックし、`<output>`
+  の数値が増減する事を assert する。SSR → chunk の動的 import →
+  `handle.update()` のフル経路を exercise する（wasm 自体は使わない）。
+- `turso_*.test.ts` — `@kuboon/kv` の Turso 実装と `@remix-run/data-table`
+  を、メモリ上の libSQL で確かめる（ネットワーク不要）。
