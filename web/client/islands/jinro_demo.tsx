@@ -13,6 +13,7 @@ import {
   type ActionType,
   type DayResult,
   type Engine,
+  type EngineKind,
   errorMessage,
   loadEngine,
   type Log,
@@ -105,8 +106,11 @@ type Viewer = "public" | "god" | string;
 export const JinroDemo = clientEntry(
   import.meta.url,
   function JinroDemo(handle: Handle) {
+    let kind: EngineKind = "rust";
     let engine: Engine | null = null;
     let loadError: string | null = null;
+    /** How long the last engine call took, in ms. */
+    let elapsed: number | null = null;
 
     let counts: Record<RoleType, number> = fromPreset(PRESETS[0].counts);
     let village: Village | null = null;
@@ -117,16 +121,36 @@ export const JinroDemo = clientEntry(
     /** Chosen target per `${actor}|${actionType}`; cleared every day. */
     let choices = new Map<string, string>();
     let jsonInput: HTMLTextAreaElement | null = null;
-    let lastCall: { fn: string; input: unknown; output: unknown } | null = null;
+    let lastCall:
+      | { fn: string; kind: EngineKind; input: unknown; output: unknown }
+      | null = null;
 
-    handle.queueTask(async () => {
+    /** Switches implementation. The village is plain data, so a game carries on in the other. */
+    const use = async (next: EngineKind) => {
+      kind = next;
+      engine = null;
+      loadError = null;
+      handle.update();
       try {
-        engine = await loadEngine();
+        const loaded = await loadEngine(next);
+        if (kind === next) engine = loaded;
       } catch (e) {
-        loadError = errorMessage(e);
+        if (kind === next) loadError = errorMessage(e);
       }
       handle.update();
-    });
+    };
+
+    handle.queueTask(() => use(kind));
+
+    /** Runs one engine call, timing it. */
+    const timed = <T,>(f: () => T): T => {
+      const t0 = performance.now();
+      try {
+        return f();
+      } finally {
+        elapsed = performance.now() - t0;
+      }
+    };
 
     const create = () => {
       if (!engine) return;
@@ -135,7 +159,8 @@ export const JinroDemo = clientEntry(
       );
       const rule = { vote: { tag: "public" as const } };
       try {
-        const [v, t] = engine.createVillage(roles, rule);
+        const e = engine;
+        const [v, t] = timed(() => e.createVillage(roles, rule));
         village = v;
         today = t;
         results = [];
@@ -143,6 +168,7 @@ export const JinroDemo = clientEntry(
         choices = new Map();
         lastCall = {
           fn: "createVillage",
+          kind,
           input: { roles, rule },
           output: [v, t],
         };
@@ -165,8 +191,14 @@ export const JinroDemo = clientEntry(
     const step = (actions: Action[]) => {
       if (!engine || !village) return;
       try {
-        const [r, v, t] = engine.processDay(village, actions);
-        lastCall = { fn: "processDay", input: { actions }, output: [r, v, t] };
+        const e = engine, current = village;
+        const [r, v, t] = timed(() => e.processDay(current, actions));
+        lastCall = {
+          fn: "processDay",
+          kind,
+          input: { actions },
+          output: [r, v, t],
+        };
         village = v;
         today = t;
         results = [...results, r];
@@ -288,6 +320,23 @@ export const JinroDemo = clientEntry(
               >
                 {village ? "作り直す" : "村を作る"}（{total} 人）
               </button>
+              <label mix={actionStyle}>
+                エンジン
+                <select
+                  mix={[
+                    selectStyle,
+                    on("change", (e) => {
+                      use(
+                        (e.currentTarget as HTMLSelectElement)
+                          .value as EngineKind,
+                      );
+                    }),
+                  ]}
+                >
+                  <option value="rust">Rust (jinro-wasi)</option>
+                  <option value="lean">Lean (Lasm)</option>
+                </select>
+              </label>
               <span mix={mutedStyle}>
                 {loadError
                   ? `wasm の読み込みに失敗: ${loadError}`
@@ -476,7 +525,11 @@ export const JinroDemo = clientEntry(
           {lastCall && (
             <section mix={panelStyle}>
               <h2>
-                最後の呼び出し: <code>{lastCall.fn}</code>
+                最後の呼び出し: <code>{lastCall.fn}</code>（{lastCall.kind ===
+                    "lean"
+                  ? "Lean"
+                  : "Rust"}
+                {elapsed !== null && `、${elapsed.toFixed(2)} ms`}）
               </h2>
               <details>
                 <summary>入力</summary>

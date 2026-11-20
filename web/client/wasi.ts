@@ -10,6 +10,7 @@
 const ERRNO_SUCCESS = 0;
 const ERRNO_BADF = 8;
 const ERRNO_NOSYS = 52;
+const FILETYPE_CHARACTER_DEVICE = 2;
 
 /** What a run of the command produced. */
 export interface WasiRun {
@@ -41,8 +42,9 @@ export function runWasi(
   const stdout: Uint8Array[] = [];
   const stderr: Uint8Array[] = [];
 
-  const wasi: Record<string, (...args: number[]) => number> = {
-    environ_sizes_get(countPtr, sizePtr) {
+  // Each import's own signature; i64 parameters arrive as `bigint`.
+  const wasi: Record<string, (...args: never[]) => number> = {
+    environ_sizes_get(countPtr: number, sizePtr: number) {
       view().setUint32(countPtr, 0, true);
       view().setUint32(sizePtr, 0, true);
       return ERRNO_SUCCESS;
@@ -50,7 +52,7 @@ export function runWasi(
     environ_get() {
       return ERRNO_SUCCESS;
     },
-    fd_read(fd, iovs, iovsLen, nreadPtr) {
+    fd_read(fd: number, iovs: number, iovsLen: number, nreadPtr: number) {
       if (fd !== 0) return ERRNO_BADF;
       let nread = 0;
       for (let i = 0; i < iovsLen; i++) {
@@ -65,7 +67,12 @@ export function runWasi(
       view().setUint32(nreadPtr, nread, true);
       return ERRNO_SUCCESS;
     },
-    fd_write(fd, iovs, iovsLen, nwrittenPtr) {
+    fd_write(
+      fd: number,
+      iovs: number,
+      iovsLen: number,
+      nwrittenPtr: number,
+    ) {
       const sink = fd === 1 ? stdout : fd === 2 ? stderr : null;
       if (!sink) return ERRNO_BADF;
       let written = 0;
@@ -78,8 +85,46 @@ export function runWasi(
       view().setUint32(nwrittenPtr, written, true);
       return ERRNO_SUCCESS;
     },
-    proc_exit(code) {
+    proc_exit(code: number) {
       throw new Exit(code);
+    },
+    // What a Lean runtime (Lasm's WASI build) asks for on top of the above: no arguments, no
+    // preopened directories, stdio that is a character device, a clock and randomness.
+    args_sizes_get(countPtr: number, sizePtr: number) {
+      view().setUint32(countPtr, 0, true);
+      view().setUint32(sizePtr, 0, true);
+      return ERRNO_SUCCESS;
+    },
+    args_get() {
+      return ERRNO_SUCCESS;
+    },
+    fd_prestat_get() {
+      return ERRNO_BADF;
+    },
+    fd_fdstat_get(fd: number, statPtr: number) {
+      if (fd > 2) return ERRNO_BADF;
+      // struct fdstat: filetype u8, flags u16, rights_base u64, rights_inheriting u64 (24 bytes)
+      bytes().fill(0, statPtr, statPtr + 24);
+      view().setUint8(statPtr, FILETYPE_CHARACTER_DEVICE);
+      view().setBigUint64(statPtr + 8, ~0n, true);
+      return ERRNO_SUCCESS;
+    },
+    fd_close() {
+      return ERRNO_SUCCESS;
+    },
+    clock_time_get(_id: number, _precision: bigint, timePtr: number) {
+      const ns =
+        BigInt(Math.round(performance.timeOrigin + performance.now())) *
+        1_000_000n;
+      view().setBigUint64(timePtr, ns, true);
+      return ERRNO_SUCCESS;
+    },
+    random_get(ptr: number, len: number) {
+      const buf = bytes().subarray(ptr, ptr + len);
+      for (let i = 0; i < len; i += 65536) {
+        crypto.getRandomValues(buf.subarray(i, Math.min(len, i + 65536)));
+      }
+      return ERRNO_SUCCESS;
     },
   };
 
@@ -88,7 +133,9 @@ export function runWasi(
     if (imp.module !== "wasi_snapshot_preview1" || imp.kind !== "function") {
       throw new Error(`unsupported import ${imp.module}.${imp.name}`);
     }
-    imports.wasi_snapshot_preview1[imp.name] = wasi[imp.name] ??
+    imports.wasi_snapshot_preview1[imp.name] = wasi[imp.name] as (
+      ...args: unknown[]
+    ) => number ??
       (() => ERRNO_NOSYS);
   }
 

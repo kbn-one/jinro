@@ -1,10 +1,11 @@
 /**
- * The jinro engine in the browser (and in Deno tests): `rust/jinro-wasi`, a WASI command that
- * answers one JSON request on stdin with one JSON response on stdout.
+ * The jinro engine in the browser (and in Deno tests): a WASI command that answers one JSON
+ * request on stdin with one JSON response on stdout. There are two implementations of the same
+ * protocol — `rust/jinro-wasi` and `lean-engine` (Lean, built by Lasm) — and either can be run.
  *
- * `deno task wasm` builds it to `static/jinro/jinro.wasm` (generated, git-ignored). This module
- * fetches and compiles it once, then runs it per call with `wasi.ts` — no transpiler, no shim
- * package. The engine is stateless (the village is the whole history), so a fresh instance per
+ * `deno task wasm` / `deno task wasm:lean` build them into `static/jinro/` (generated,
+ * git-ignored). This module fetches and compiles each once, then runs it per call with `wasi.ts` —
+ * no transpiler, no shim package. The engine is stateless (the village is the whole history), so a fresh instance per
  * call loses nothing.
  *
  * The types below are the wire format, as written in `rust/jinro-wasi/src/lib.rs`.
@@ -156,17 +157,30 @@ export function engineFrom(module: WebAssembly.Module): Engine {
   };
 }
 
-let engine: Promise<Engine> | null = null;
+/** Which implementation to run: the Rust crate or the Lean port (built by Lasm). */
+export type EngineKind = "rust" | "lean";
 
-/** Fetches and compiles `jinro.wasm` once, and hands out the engine. */
-export function loadEngine(): Promise<Engine> {
-  engine ??= (async () => {
-    // Not `compileStreaming`: that insists on `application/wasm`, which not every static host
-    // (nor the dev file server) sends for `.wasm`.
-    const res = await fetch(`${base}/static/jinro/jinro.wasm`);
-    if (!res.ok) throw new Error(`${res.status} ${res.url}`);
-    return engineFrom(await WebAssembly.compile(await res.arrayBuffer()));
-  })();
+/** The wasm file each kind is built to (`deno task wasm` / `deno task wasm:lean`). */
+export const ENGINE_FILES: Record<EngineKind, string> = {
+  rust: "jinro.wasm",
+  lean: "jinro-lean.wasm",
+};
+
+const engines = new Map<EngineKind, Promise<Engine>>();
+
+/** Fetches and compiles an engine's wasm once, and hands out the engine. */
+export function loadEngine(kind: EngineKind = "rust"): Promise<Engine> {
+  let engine = engines.get(kind);
+  if (!engine) {
+    engine = (async () => {
+      // Not `compileStreaming`: that insists on `application/wasm`, which not every static host
+      // (nor the dev file server) sends for `.wasm`.
+      const res = await fetch(`${base}/static/jinro/${ENGINE_FILES[kind]}`);
+      if (!res.ok) throw new Error(`${res.status} ${res.url}`);
+      return engineFrom(await WebAssembly.compile(await res.arrayBuffer()));
+    })();
+    engines.set(kind, engine);
+  }
   return engine;
 }
 

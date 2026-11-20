@@ -1,0 +1,4 @@
+/.lake/
+/dist/
+/wasi/
+/node_modules/

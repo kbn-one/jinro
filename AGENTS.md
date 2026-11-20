@@ -14,6 +14,7 @@ jinro/
 │   ├── jinro-wasm/  # WASM component (wit-bindgen, wit/world.wit)
 │   ├── jinro-wasi/  # WASI command: one JSON request on stdin -> one JSON response on stdout
 │   └── lean/        # Lean proofs over the Aeneas translation
+├── lean-engine/     # the engine written directly in Lean, built to a WASI command by Lasm (experiment)
 ├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
 │   ├── client/      # pages / islands; /wasm is the engine playground
 │   └── server/      # router, API, Cloudflare Worker (kept for later use)
@@ -168,6 +169,12 @@ while(today.winner is null){
   preview 1 implementation (`web/client/wasi.ts`): JSON in on stdin, JSON out
   on stdout. No transpiler or shim package. The wire format is documented in
   `rust/jinro-wasi/src/lib.rs`.
+- `deno task wasm:lean` builds `lean-engine/` with Lasm (needs Node 24+) into
+  `web/client/static/jinro/jinro-lean.wasm`: the same JSON protocol, implemented
+  in Lean (`Jinro/Engine.lean`, `Jinro/Wire.lean`), with proofs about that very
+  code in `Jinro/Proofs.lean` (checked whenever it builds).
+  `web/server/engine_diff.test.ts` plays seeded random games on both engines and
+  requires identical JSON responses; `deno task test` needs both built.
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
 

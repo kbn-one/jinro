@@ -3,10 +3,11 @@
 # mise and runs `mise run build` (its default build-command) with BASE_URL set.
 [tools]
 deno = "latest"
+# Lasm (deno task wasm:lean) needs Node 24+.
 node = "latest"
 # wasm32-wasip1 is what `deno task wasm` builds rust/jinro-wasi for.
 rust = { version = "latest", targets = "wasm32-wasip1" }
 
 [tasks.build]
-description = "Build the jinro wasm for the browser, then the static site into web/dist"
-run = "deno task wasm && deno task build"
+description = "Build both jinro engines (Rust, and Lean via Lasm) for the browser, then the static site into web/dist"
+run = "deno task wasm && deno task wasm:lean && deno task build"

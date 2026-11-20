@@ -23,6 +23,10 @@
     "wasm": {
       "description": "Build rust/jinro-wasi (the engine as a WASI command) into web/client/static/jinro/jinro.wasm",
       "command": "cargo build --manifest-path rust/Cargo.toml -p jinro-wasi --target wasm32-wasip1 --release && mkdir -p web/client/static/jinro && cp rust/target/wasm32-wasip1/release/jinro.wasm web/client/static/jinro/jinro.wasm"
+    },
+    "wasm:lean": {
+      "description": "Build lean-engine (the engine in Lean) with Lasm into web/client/static/jinro/jinro-lean.wasm. Needs Node 24+.",
+      "command": "cd lean-engine && npm ci --no-audit --no-fund && npm run -s build && mkdir -p ../web/client/static/jinro && cp wasi/main.wasm ../web/client/static/jinro/jinro-lean.wasm"
     }
   },
   "permissions": {
@@ -96,7 +100,8 @@
       "web/dist",
       "web/worker-dist",
       ".cloudflare",
-      "node_modules"
+      "node_modules",
+      "lean-engine"
     ]
   },
   "lint": {
@@ -109,7 +114,8 @@
       "web/dist",
       "web/worker-dist",
       ".cloudflare",
-      "node_modules"
+      "node_modules",
+      "lean-engine"
     ]
   }
 }
