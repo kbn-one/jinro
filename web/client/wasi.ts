@@ -32,9 +32,10 @@ export function runWasi(
   module: WebAssembly.Module,
   stdin: Uint8Array,
 ): WasiRun {
-  let memory: WebAssembly.Memory | undefined;
-  const view = () => new DataView(memory!.buffer);
-  const bytes = () => new Uint8Array(memory!.buffer);
+  // Filled in once the instance exists; the imports only run after that.
+  const state: { memory?: WebAssembly.Memory } = {};
+  const view = () => new DataView(state.memory!.buffer);
+  const bytes = () => new Uint8Array(state.memory!.buffer);
 
   let stdinOffset = 0;
   const stdout: Uint8Array[] = [];
@@ -92,7 +93,7 @@ export function runWasi(
   }
 
   const instance = new WebAssembly.Instance(module, imports);
-  memory = instance.exports.memory as WebAssembly.Memory;
+  state.memory = instance.exports.memory as WebAssembly.Memory;
   let exitCode = 0;
   try {
     (instance.exports._start as () => void)();
