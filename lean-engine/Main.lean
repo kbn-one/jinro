@@ -1,7 +1,7 @@
 /-
-The jinro engine as a WASI command (built by Lasm: `deno task wasm:lean`).
+The jinro engine as a WASI command (built by Lasm: `deno task wasm`).
 Reads one JSON request from stdin and writes one JSON response to stdout — the protocol of
-`Jinro.Wire`, shared with `rust/jinro-wasi`. Exits 1 when the response is an error.
+`Jinro.Wire`. Exits 1 when the response is an error.
 -/
 import Jinro.Wire
 -- Imported so that building the command also checks the proofs; theorems compile to nothing.

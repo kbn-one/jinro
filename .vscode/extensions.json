@@ -1,6 +1,5 @@
 {
   "recommendations": [
-    "rust-lang.rust-analyzer",
-    "bytecodealliance.wit-idl"
+    "leanprover.lean4"
   ]
 }

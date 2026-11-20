@@ -14,14 +14,12 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      # The jinro wasm demo needs both engines built (web/client/static/jinro/):
-      # the Rust one, and the Lean one (Lasm, which needs Node 24+).
-      - run: rustup target add wasm32-wasip1
-      - run: deno task wasm
+      # The engine (lean-engine, built by Lasm, which needs Node 24+) goes to
+      # web/client/static/jinro/jinro.wasm; the demo and the tests need it.
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: deno task wasm:lean
+      - run: deno task wasm
       - run: deno task check
       - run: deno task test
       - run: deno task build

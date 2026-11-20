@@ -185,7 +185,6 @@ export const entryPoints: readonly string[] = [
   "/sw.js", // [feature:push]
   // [feature:jinro-demo] The engine `client/jinro.ts` fetches at runtime.
   "/static/jinro/jinro.wasm",
-  "/static/jinro/jinro-lean.wasm",
   // [feature:helper] The chat's chunk is only named by an attribute on the help button, which a
   // link-following crawl never reads — see `client/helper/install.ts`.
   `/${stripBase(clientRuntime.helper, base)}`,

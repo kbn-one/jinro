@@ -4,8 +4,8 @@ import Jinro.Engine
 /-!
 # The JSON protocol
 
-The same wire format as `rust/jinro-wasi/src/lib.rs` (so the web demo and the bindings can run
-either engine): one request object in, one response object out.
+One request object in, one response object out. `web/client/jinro.ts` carries the matching
+TypeScript types.
 
 ```text
 {"op":"createVillage","roles":[...],"rule":{...}}  -> {"ok":{"village":..,"today":..}}

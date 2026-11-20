@@ -1,10 +1,11 @@
 /**
  * Just enough WASI preview 1 to run a command with stdin and stdout, in the browser or in Deno.
  *
- * The jinro engine (`rust/jinro-wasi`) is a WASI command that reads one JSON request from stdin
- * and writes one JSON response to stdout. Its build imports five WASI functions, and those are all
- * this implements: no files, no clocks, no environment. Anything else the module imports answers
- * `ENOSYS`, so a newer build that wants more fails loudly rather than silently.
+ * The jinro engine (`lean-engine`, built by Lasm) is a WASI command that reads one JSON request
+ * from stdin and writes one JSON response to stdout. This implements only what that needs: stdio,
+ * no arguments or environment, no preopened files, a clock and randomness. Anything else the
+ * module imports answers `ENOSYS`, so a newer build that wants more fails loudly rather than
+ * silently.
  */
 
 const ERRNO_SUCCESS = 0;

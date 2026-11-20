@@ -12,7 +12,7 @@ differences. Compressed sizes: gzip -9, brotli quality 11.
 | V4 engine + JSON protocol (`Jinro.Wire`), no proofs | 839,363 | 200,720 | 158,439 |
 | V5 V4 + `Jinro.Proofs`, 14 theorems (what ships) | 839,559 | 200,730 | 158,444 |
 | V6 V4 + `Jinro.Proofs`, 1 theorem | 839,559 | 200,730 | 158,444 |
-| Rust `jinro-wasi` (same protocol, for comparison) | 193,262 | 70,363 | 57,959 |
+| The former Rust engine (same protocol, for comparison) | 193,262 | 70,363 | 57,959 |
 
 ## Where the bytes go (raw)
 

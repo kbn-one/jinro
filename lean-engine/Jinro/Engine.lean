@@ -1,9 +1,10 @@
 /-!
 # The jinro rule engine, in Lean
 
-A port of `rust/jinro-core` with the same behaviour, written as ordinary Lean (arrays, folds,
-`filter`, `findSome?`) rather than in a translatable subset: this is the code that runs (Lasm
-compiles it to wasm) and the code the theorems in `Jinro.Proofs` are about.
+Written as ordinary Lean (arrays, folds, `filter`, `findSome?`): this is the code that runs (Lasm
+compiles it to wasm) and the code the theorems in `Jinro.Proofs` are about. It started as a port
+of an earlier Rust implementation and matched it response for response on 40 random games; that
+record lives on as `web/server/engine_games.fixture.json`.
 
 Creatures are indices into `Village.roles`. The engine is stateless: a `Village` is the whole
 history (roles + days), and everything else is derived from it.
