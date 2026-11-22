@@ -10,12 +10,15 @@ uses WasmGC instead of Lean's C runtime:
 * reference counting is dropped: `inc`/`dec`/`del` emit nothing, and `isShared` always answers
   "shared" so code never takes the destructive-update path (`set` on a fresh object is harmless);
 * join points become blocks, `case` a `br_table`, a call in tail position `return_call`;
-* `@[extern]` functions are looked up by their C name in a small table of WAT implementations.
+* `@[extern]` functions are looked up by their C name in a small table of WAT implementations;
+  `Array`s are WasmGC arrays, copied on every update;
+* closures are `$clo { arity, funcref, args }`, applied through `call_ref`.
 
-Anything outside that subset (closures, strings, arrays, scalar fields, floats) stops with an
-error naming it — that list is the to-do list.
+Anything outside that subset (strings, `usize` fields, floats, bignums) stops with an error
+naming it — that list is the to-do list.
 
-Usage: emitwasm <Module> <root> [<root> ...]  >  out.wat
+Usage: emitwasm [--list-io] <Module> <root> [<root> ...]  >  out.wat
+       emitwasm --needs <Module> <root> ...      (the externs and IR forms a program uses)
 -/
 import Lean
 open Lean IR
@@ -58,7 +61,19 @@ def externImpl : List (String × String) :=
    ("lean_uint32_add", "$u32_add"), ("lean_uint32_sub", "$u32_sub"),
    ("lean_uint32_mul", "$u32_mul"), ("lean_uint32_div", "$u32_div"),
    ("lean_uint32_mod", "$u32_mod"), ("lean_uint32_dec_eq", "$u32_eq"),
-   ("lean_uint32_dec_lt", "$u32_lt"), ("lean_uint32_dec_le", "$u32_le")]
+   ("lean_uint32_dec_lt", "$u32_lt"), ("lean_uint32_dec_le", "$u32_le"),
+   ("lean_usize_of_nat", "$nat_val"), ("lean_usize_to_nat", "$nat_mk"),
+   ("lean_usize_add", "$usize_add"), ("lean_usize_dec_eq", "$usize_eq"),
+   ("lean_usize_dec_lt", "$usize_lt"),
+   -- Arrays are WasmGC arrays, never updated in place (see `prelude`).
+   ("lean_mk_empty_array_with_capacity", "$arr_empty"), ("lean_mk_array", "$arr_replicate"),
+   ("lean_array_mk", "$arr_of_list"), ("lean_array_to_list", "$arr_to_list"),
+   ("lean_array_get_size", "$arr_size"), ("lean_array_size", "$arr_usize"),
+   ("lean_array_fget", "$arr_fget"), ("lean_array_fget_borrowed", "$arr_fget"),
+   ("lean_array_get", "$arr_get"), ("lean_array_get_borrowed", "$arr_get"),
+   ("lean_array_uget", "$arr_uget"), ("lean_array_uget_borrowed", "$arr_uget"),
+   ("lean_array_fset", "$arr_fset"), ("lean_array_uset", "$arr_uset"),
+   ("lean_array_push", "$arr_push")]
 
 def externName (d : ExternAttrData) : Option String :=
   d.entries.findSome? fun
@@ -131,9 +146,13 @@ def argWith (ty : IRType) : Arg → M Unit
     | _ => line "i32.const 0"
 
 def emitArgs (env : Environment) (c : Name) (ys : Array Arg) : M Unit := do
-  let ps := (findEnvDecl env c).map (·.params) |>.getD #[]
+  let d := findEnvDecl env c
+  let ps := d.map (·.params) |>.getD #[]
+  -- As in Lean's C backend, an extern's erased parameters (types, proofs) are not passed.
+  let isExtern := d.any (· matches .extern ..)
   for h : i in [0:ys.size] do
-    argWith (ps[i]?.map (·.ty) |>.getD .object) ys[i]
+    let ty := ps[i]?.map (·.ty) |>.getD .object
+    unless isExtern && ty.isErased do argWith ty ys[i]
 
 def emitExpr (env : Environment) (ty : IRType) : IR.Expr → M Unit
   | .ctor i ys => do
@@ -173,8 +192,21 @@ def emitExpr (env : Environment) (ty : IRType) : IR.Expr → M Unit
       else line s!"(struct.new $big (i64.const {v}))"
   | .isShared _ => line "i32.const 1"
   | .lit (.str _) => unsupported "string literals"
-  | .pap c _ => unsupported s!"partial application of {c} (closures)"
-  | .ap _ _ => unsupported "closure application"
+  | .pap c ys => do
+    -- A closure: the function (always a boxed variant, all `anyref`), its arity, the arguments.
+    let ps := (findEnvDecl env c).map (·.params) |>.getD #[]
+    for p in ps do
+      if (← wasmTy p.ty) != "anyref" then unsupported s!"closure over unboxed {c}"
+    line s!"i32.const {ps.size}"
+    line s!"ref.func {← funRef env c}"
+    for y in ys do argWith .object y
+    line s!"array.new_fixed $fields {ys.size}"
+    line "struct.new $clo"
+  | .ap x ys => do
+    line s!"local.get {var x}"
+    for y in ys do argWith .object y
+    line s!"array.new_fixed $fields {ys.size}"
+    line "call $apply"
   | .sproj _ offset x => do
     line s!"(struct.get $obj $scalars (ref.cast (ref $obj) (local.get {var x})))"
     line s!"i32.const {offset}"
@@ -348,16 +380,218 @@ def prelude : String := "
 (func $u32_le (param i32 i32) (result i32) (i32.le_u (local.get 0) (local.get 1)))
 (func $nat_dec_le (param $a anyref) (param $b anyref) (result i32)
   (i64.le_u (call $nat_val (local.get $a)) (call $nat_val (local.get $b))))
+(func $usize_add (param i64 i64) (result i64) (i64.add (local.get 0) (local.get 1)))
+(func $usize_eq (param i64 i64) (result i32) (i64.eq (local.get 0) (local.get 1)))
+(func $usize_lt (param i64 i64) (result i32) (i64.lt_u (local.get 0) (local.get 1)))
+
+;; Array: a $fields array of exactly its size. Lean updates an array in place when it holds the
+;; only reference; without reference counts we cannot know that, so every update copies.
+(func $arr (param $a anyref) (result (ref $fields)) (ref.cast (ref $fields) (local.get $a)))
+(func $arr_empty (param $cap anyref) (result anyref) (array.new_fixed $fields 0))
+(func $arr_replicate (param $n anyref) (param $v anyref) (result anyref)
+  (array.new $fields (local.get $v) (i32.wrap_i64 (call $nat_val (local.get $n)))))
+(func $arr_size (param $a anyref) (result anyref)
+  (ref.i31 (array.len (call $arr (local.get $a)))))
+(func $arr_usize (param $a anyref) (result i64)
+  (i64.extend_i32_u (array.len (call $arr (local.get $a)))))
+(func $arr_fget (param $a anyref) (param $i anyref) (result anyref)
+  (array.get $fields (call $arr (local.get $a)) (i32.wrap_i64 (call $nat_val (local.get $i)))))
+(func $arr_uget (param $a anyref) (param $i i64) (result anyref)
+  (array.get $fields (call $arr (local.get $a)) (i32.wrap_i64 (local.get $i))))
+;; `a[i]!`: the default (the `Inhabited` value) when out of bounds. Lean would also report a panic.
+(func $arr_get (param $d anyref) (param $a anyref) (param $i anyref) (result anyref)
+  (local $j i64)
+  (local.set $j (call $nat_val (local.get $i)))
+  (if (result anyref)
+      (i64.lt_u (local.get $j) (i64.extend_i32_u (array.len (call $arr (local.get $a)))))
+    (then (array.get $fields (call $arr (local.get $a)) (i32.wrap_i64 (local.get $j))))
+    (else (local.get $d))))
+(func $arr_copy (param $a anyref) (param $n i32) (result (ref $fields))
+  (local $b (ref $fields))
+  (local.set $b (array.new_default $fields (local.get $n)))
+  (array.copy $fields $fields (local.get $b) (i32.const 0) (call $arr (local.get $a)) (i32.const 0)
+    (array.len (call $arr (local.get $a))))
+  (local.get $b))
+(func $arr_uset (param $a anyref) (param $i i64) (param $v anyref) (result anyref)
+  (local $b (ref $fields))
+  (local.set $b (call $arr_copy (local.get $a) (array.len (call $arr (local.get $a)))))
+  (array.set $fields (local.get $b) (i32.wrap_i64 (local.get $i)) (local.get $v))
+  (local.get $b))
+(func $arr_fset (param $a anyref) (param $i anyref) (param $v anyref) (result anyref)
+  (call $arr_uset (local.get $a) (call $nat_val (local.get $i)) (local.get $v)))
+(func $arr_push (param $a anyref) (param $v anyref) (result anyref)
+  (local $b (ref $fields)) (local $n i32)
+  (local.set $n (array.len (call $arr (local.get $a))))
+  (local.set $b (call $arr_copy (local.get $a) (i32.add (local.get $n) (i32.const 1))))
+  (array.set $fields (local.get $b) (local.get $n) (local.get $v))
+  (local.get $b))
+;; List: [] is the scalar constructor 0, x :: xs an $obj with tag 1 and fields [x, xs].
+(func $arr_of_list (param $l anyref) (result anyref)
+  (local $n i32) (local $p anyref) (local $b (ref $fields))
+  (local.set $p (local.get $l))
+  (block $done (loop $count
+    (br_if $done (ref.test (ref i31) (local.get $p)))
+    (local.set $n (i32.add (local.get $n) (i32.const 1)))
+    (local.set $p (array.get $fields (struct.get $obj $fields (ref.cast (ref $obj) (local.get $p)))
+      (i32.const 1)))
+    (br $count)))
+  (local.set $b (array.new_default $fields (local.get $n)))
+  (local.set $p (local.get $l))
+  (local.set $n (i32.const 0))
+  (block $done (loop $fill
+    (br_if $done (ref.test (ref i31) (local.get $p)))
+    (array.set $fields (local.get $b) (local.get $n)
+      (array.get $fields (struct.get $obj $fields (ref.cast (ref $obj) (local.get $p))) (i32.const 0)))
+    (local.set $n (i32.add (local.get $n) (i32.const 1)))
+    (local.set $p (array.get $fields (struct.get $obj $fields (ref.cast (ref $obj) (local.get $p)))
+      (i32.const 1)))
+    (br $fill)))
+  (local.get $b))
+(func $arr_to_list (param $a anyref) (result anyref)
+  (local $i i32) (local $l anyref)
+  (local.set $i (array.len (call $arr (local.get $a))))
+  (local.set $l (ref.i31 (i32.const 0)))
+  (block $done (loop $build
+    (br_if $done (i32.eqz (local.get $i)))
+    (local.set $i (i32.sub (local.get $i) (i32.const 1)))
+    (local.set $l (struct.new $obj (i32.const 1)
+      (array.new_fixed $fields 2 (array.get $fields (call $arr (local.get $a)) (local.get $i))
+        (local.get $l))
+      (ref.null $scalars)))
+    (br $build)))
+  (local.get $l))
 "
 
-def emitModule (env : Environment) (roots : List Name) : M Unit := do
+/-! ## Closures
+
+A closure is `$clo { arity, fn: funcref, args }`. `ap` appends arguments: too few makes a new
+closure, exactly enough calls `fn` through `call_ref` on its arity's type, too many calls and
+applies the result to the rest. Only arities that some `pap` uses get a function type. -/
+
+partial def paps : FnBody → Array Name
+  | .vdecl _ _ e b => (match e with | .pap c _ => #[c] | _ => #[]) ++ paps b
+  | .jdecl _ _ v b => paps v ++ paps b
+  | .case _ _ _ alts => alts.foldl (fun acc a => acc ++ paps a.body) #[]
+  | b => if b.isTerminal then #[] else paps b.body
+
+def closureRuntime (arities : List Nat) : String := Id.run do
+  let anys (k : Nat) := " ".intercalate ((List.range k).map fun _ => "anyref")
+  let mut out := "(type $clo (struct (field $arity i32) (field $fn funcref) (field $args (ref $fields))))\n"
+  for k in arities do
+    out := out ++ s!"(type $fn{k} (func (param {anys k}) (result anyref)))\n"
+  -- $call: dispatch on the arity
+  out := out ++ "(func $call (param $fn funcref) (param $a i32) (param $xs (ref $fields)) (result anyref)\n"
+  let maxA := arities.foldl max 0
+  for k in (List.range (maxA + 1)).reverse do out := out ++ s!"block $a{k}\n"
+  let table := (List.range (maxA + 1)).map fun k => if arities.contains k then s!"$a{k}" else "$a0"
+  out := out ++ s!"(local.get $a) (br_table {" ".intercalate table} $a0)\nend unreachable\n"
+  for k in List.range' 1 maxA do
+    out := out ++ "end\n"
+    if arities.contains k then
+      let args := (List.range k).map fun i => s!"(array.get $fields (local.get $xs) (i32.const {i}))"
+      out := out ++ s!"(return (call_ref $fn{k} {" ".intercalate args} (ref.cast (ref $fn{k}) (local.get $fn))))\n"
+    else out := out ++ "unreachable\n"
+  out := out ++ "unreachable)\n"
+  out := out ++ "
+(func $apply (param $f anyref) (param $ys (ref $fields)) (result anyref)
+  (local $c (ref $clo)) (local $k i32) (local $n i32) (local $all (ref $fields))
+  (local $r anyref) (local $rest (ref $fields))
+  (local.set $c (ref.cast (ref $clo) (local.get $f)))
+  (local.set $k (array.len (struct.get $clo $args (local.get $c))))
+  (local.set $n (i32.add (local.get $k) (array.len (local.get $ys))))
+  (local.set $all (array.new_default $fields (local.get $n)))
+  (array.copy $fields $fields (local.get $all) (i32.const 0)
+    (struct.get $clo $args (local.get $c)) (i32.const 0) (local.get $k))
+  (array.copy $fields $fields (local.get $all) (local.get $k)
+    (local.get $ys) (i32.const 0) (array.len (local.get $ys)))
+  (if (i32.lt_u (local.get $n) (struct.get $clo $arity (local.get $c)))
+    (then (return (struct.new $clo (struct.get $clo $arity (local.get $c))
+      (struct.get $clo $fn (local.get $c)) (local.get $all)))))
+  (local.set $r (call $call (struct.get $clo $fn (local.get $c))
+    (struct.get $clo $arity (local.get $c)) (local.get $all)))
+  (if (i32.eq (local.get $n) (struct.get $clo $arity (local.get $c)))
+    (then (return (local.get $r))))
+  (local.set $k (struct.get $clo $arity (local.get $c)))
+  (local.set $rest (array.new_default $fields (i32.sub (local.get $n) (local.get $k))))
+  (array.copy $fields $fields (local.get $rest) (i32.const 0)
+    (local.get $all) (local.get $k) (i32.sub (local.get $n) (local.get $k)))
+  (return_call $apply (local.get $r) (local.get $rest)))
+"
+  return out
+
+/-- For a host that talks to the program in `List Nat`s, through `i32`s only: `input(n)` makes
+    an input buffer, `set(i, v)` fills it, `run()` calls the first root on it as a list and
+    returns the length of the answer, `get(i)` reads the answer. No GC reference crosses to JS
+    (see README: passing them back and forth gave wrong answers under V8's optimizing tiers). -/
+def listHelpers (entry : String) : String := s!"
+(type $i32s (array (mut i32)))
+(global $in (mut (ref null $i32s)) (ref.null $i32s))
+(global $out (mut (ref null $i32s)) (ref.null $i32s))
+(func (export \"input\") (param $n i32)
+  (global.set $in (array.new_default $i32s (local.get $n))))
+(func (export \"set\") (param $i i32) (param $v i32)
+  (array.set $i32s (global.get $in) (local.get $i) (local.get $v)))
+(func (export \"get\") (param $i i32) (result i32)
+  (array.get $i32s (global.get $out) (local.get $i)))
+(func (export \"run\") (result i32)
+  (local $l anyref) (local $i i32) (local $n i32) (local $p anyref) (local $b (ref $i32s))
+  ;; the input as a list, built from the end
+  (local.set $l (ref.i31 (i32.const 0)))
+  (local.set $i (array.len (global.get $in)))
+  (block $done (loop $build
+    (br_if $done (i32.eqz (local.get $i)))
+    (local.set $i (i32.sub (local.get $i) (i32.const 1)))
+    (local.set $l (struct.new $obj (i32.const 1)
+      (array.new_fixed $fields 2
+        (call $nat_mk (i64.extend_i32_u (array.get $i32s (global.get $in) (local.get $i))))
+        (local.get $l))
+      (ref.null $scalars)))
+    (br $build)))
+  (local.set $l (call {entry} (local.get $l)))
+  ;; the answer's length, then its elements
+  (local.set $p (local.get $l))
+  (block $done (loop $count
+    (br_if $done (ref.test (ref i31) (local.get $p)))
+    (local.set $n (i32.add (local.get $n) (i32.const 1)))
+    (local.set $p (array.get $fields (struct.get $obj $fields (ref.cast (ref $obj) (local.get $p)))
+      (i32.const 1)))
+    (br $count)))
+  (local.set $b (array.new_default $i32s (local.get $n)))
+  (local.set $p (local.get $l))
+  (local.set $i (i32.const 0))
+  (block $done (loop $fill
+    (br_if $done (ref.test (ref i31) (local.get $p)))
+    (array.set $i32s (local.get $b) (local.get $i) (i32.wrap_i64 (call $nat_val
+      (array.get $fields (struct.get $obj $fields (ref.cast (ref $obj) (local.get $p))) (i32.const 0)))))
+    (local.set $i (i32.add (local.get $i) (i32.const 1)))
+    (local.set $p (array.get $fields (struct.get $obj $fields (ref.cast (ref $obj) (local.get $p)))
+      (i32.const 1)))
+    (br $fill)))
+  (global.set $out (local.get $b))
+  (local.get $n))
+"
+
+def emitModule (env : Environment) (roots : List Name) (listIO := false) : M Unit := do
   let decls ← match collect env roots with
     | .ok ds => pure ds
     | .error e => throw e
   for h : i in [0:decls.size] do
     modify fun st => { st with funIds := st.funIds.insert decls[i].name i }
+  let targets := decls.foldl (fun acc d => match d with
+    | .fdecl _ _ _ b _ => acc ++ paps b
+    | _ => acc) #[]
+  let arities := targets.foldl (fun acc c =>
+    let k := (findEnvDecl env c).map (·.params.size) |>.getD 0
+    if acc.contains k then acc else acc ++ [k]) ([] : List Nat)
   line "(module"
   line prelude
+  if listIO then
+    let some r := roots.head? | throw "--list-io needs a root"
+    line (listHelpers (← funRef env r))
+  if !targets.isEmpty then
+    line (closureRuntime arities)
+    let refs ← targets.toList.mapM (funRef env)
+    line s!"(elem declare func {" ".intercalate refs.eraseDups})"
   for d in decls do
     line s!";; {d.name}"
     emitDecl env roots d
@@ -365,11 +599,52 @@ def emitModule (env : Environment) (roots : List Name) : M Unit := do
 
 end WasmGC
 
+/-- What a program needs from the backend: the externs it calls and the IR forms it uses. -/
+partial def needs (env : Environment) : FnBody → Array String
+  | .vdecl _ t e b =>
+    let here := match e with
+      | .fap c _ => match findEnvDecl env c with
+        | some (.extern _ _ _ ext) => #[s!"extern {(WasmGC.externName ext).getD c.toString}"]
+        | _ => #[]
+      | .pap c _ => #[s!"pap {c}"]
+      | .ap .. => #["ap"]
+      | .lit (.str _) => #["string literal"]
+      | .uproj .. => #["uproj"]
+      | .ctor i _ => if i.usize > 0 then #[s!"usize field {i.name}"] else #[]
+      | _ => #[]
+    let ty := match t with
+      | .float | .float32 => #["float"]
+      | _ => #[]
+    here ++ ty ++ needs env b
+  | .jdecl _ _ v b => needs env v ++ needs env b
+  | .case _ _ _ alts => alts.foldl (fun acc a => acc ++ needs env a.body) #[]
+  | .uset .. => #["uset"]
+  | b => if b.isTerminal then #[] else needs env b.body
+
 unsafe def main (args : List String) : IO UInt32 := do
-  let mod :: roots := args | IO.eprintln "usage: emitwasm <Module> <root>..."; return 2
+  if let "--needs" :: mod :: roots := args then
+    enableInitializersExecution
+    initSearchPath (← findSysroot)
+    let env ← importModules #[{ module := mod.toName }] {} (loadExts := true)
+    match WasmGC.collect env (roots.map String.toName) with
+    | .error e => IO.eprintln e; return 1
+    | .ok ds =>
+      let mut seen : Std.HashSet String := {}
+      for d in ds do
+        if let .fdecl _ _ _ b _ := d then
+          for n in needs env b do
+            unless seen.contains n do
+              seen := seen.insert n; IO.println n
+      IO.println s!"{ds.size} declarations"
+      return 0
+  let (listIO, args) := match args with
+    | "--list-io" :: rest => (true, rest)
+    | _ => (false, args)
+  let mod :: roots := args
+    | IO.eprintln "usage: emitwasm [--needs | --list-io] <Module> <root>..."; return 2
   enableInitializersExecution
   initSearchPath (← findSysroot)
   let env ← importModules #[{ module := mod.toName }] {} (loadExts := true)
-  match ← (WasmGC.emitModule env (roots.map String.toName)).run {} |>.run with
+  match ← (WasmGC.emitModule env (roots.map String.toName) listIO).run {} |>.run with
   | .ok ((), st) => IO.println ("\n".intercalate st.out.toList); return 0
   | .error e => IO.eprintln e; return 1

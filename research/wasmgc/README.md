@@ -1,11 +1,63 @@
 # Lean IR → WasmGC: a small experiment
 
 Can Lean programs run as WebAssembly **without Lean's C runtime**, using WasmGC
-for memory? This is a ~400-line backend (`Emit.lean`, itself Lean) that reads
+for memory? This is a ~600-line backend (`Emit.lean`, itself Lean) that reads
 the IR Lean's own compiler produces — the input of its C backend — and prints a
 WasmGC text module.
 
-## Result (2026-11-22, Lean 4.35.0, V8 via Deno)
+## Result 2: the real jinro engine (2026-11-22)
+
+`lean-engine/Jinro/Engine.lean` compiles **unchanged**. Only the boundary is
+new: instead of `Lean.Json` (strings, a parser, bignum numbers), requests and
+responses are `List Nat` (`JinroFlat.lean`), and the host does the JSON
+(`jinro_gc.ts`, the counterpart of `Wire.lean`).
+
+| Build                                     |      raw |   brotli |
+| ----------------------------------------- | -------: | -------: |
+| Lasm (Lean C runtime + `Lean.Json`, WASI) | 839.6 KB | 158.4 KB |
+| This backend, debug names stripped        |  31.5 KB |   9.2 KB |
+| … of which the rules                      |   ~16 KB |    ~5 KB |
+| … the `List Nat` codec                    |   ~14 KB |    ~3 KB |
+| … runtime (Nat, Array, closures)          |    ~1 KB |    <1 KB |
+| `jinro_gc.ts` (host side, unminified)     |   9.8 KB |   3.0 KB |
+
+About 27× smaller raw, 17× compressed. `regression.ts` replays the 40 seeded
+games of `web/server/engine_games.ts` through the same `Engine` interface: **all
+40 match the fixture** the Lasm build is tested against. They take 106 ms
+against Lasm's 804 ms (Deno; the Lasm build is a WASI command, instantiated
+afresh for every call).
+
+What the engine needed beyond the first demo: `Array` (16 externs, as WasmGC
+arrays that every update copies, since without reference counts we never know an
+array is unshared) and closures (`pap`/`ap`, as a struct of arity, `funcref` and
+arguments, applied through `call_ref`). Lean's specializer had already turned
+almost every `filter`/`foldl` lambda into a first-order loop: one closure is
+left in the whole engine. No strings, floats or bignums are reached.
+`lake exe emitwasm --needs <Module> <root>` lists what a program uses.
+
+### The subset, made precise
+
+`JinroFlat.lean` gives every wire type a codec and proves
+`dec (enc x ++ rest) = some (x, rest)` for each (`LawfulCodec`), from a few
+generic instances (`Nat`, `Option`, `List`, `Array`, pairs, enums, and “encode
+through a type that has a codec”). Two theorems state the boundary on values:
+`handle (1 :: enc v ++ enc actions)` is exactly the encoding of
+`processDay v actions` and `buildToday` of its result, and likewise for
+`createVillage`. So the wasm-shaped part adds nothing to the rules; what stays
+trusted is the backend, its runtime WAT, and the host reader mirroring `dec`.
+
+### A bug this found in the test harness
+
+The WasmGC build first matched only 19 of 40 games, and only when run after
+about 18 others. Native Lean, fed the same requests, gave byte-identical
+answers, and `--v8-flags=--no-maglev` made all 40 pass. The cause was `playGame`
+shuffling with `actions.sort(() => rand() - 0.5)`: with an inconsistent
+comparator the order is implementation-defined, and V8 sorts differently once
+the JIT has optimized the caller. The Lasm build had passed by luck of timing.
+The harness now uses Fisher–Yates, and the fixture was regenerated with the Lasm
+build (both builds match it, with or without the JIT).
+
+## Result 1: a demo (2026-11-22, Lean 4.35.0, V8 via Deno)
 
 `Demo.lean` (a binary search tree over `Nat`, `fib`, a `for` loop) exported as
 `fib`, `sumTo`, `treeSize`:
@@ -34,10 +86,11 @@ run, Deno).
 | `case`                                       | nested blocks + `br_table` on the constructor index                             |
 | call in tail position                        | `return_call`                                                                   |
 | `@[extern "lean_nat_add"]` etc.              | a hand-written WAT function per C name (`externImpl`)                           |
+| `Array`                                      | `array (mut anyref)` of exactly its size; every update copies                   |
+| closure (`pap`), `ap`                        | `struct $clo { arity, funcref, args }`, called through `call_ref`               |
 
-Anything else stops the build with `unsupported: …` (closures, strings, arrays,
-`usize` fields, floats): that is the to-do list, and also the definition of the
-subset.
+Anything else stops the build with `unsupported: …` (strings, `usize` fields,
+floats, bignums): that is the to-do list, and also the definition of the subset.
 
 ## Trust
 
@@ -69,12 +122,12 @@ that — easier from LCNF, which still has the types, than from IR.
 
 1. Typed structs per constructor (from LCNF or by recovering types), instead of
    the generic `$obj`.
-2. Closures (`pap`/`ap`) as structs holding a `funcref`, and `Array` as WasmGC
-   arrays — the two things `lean-engine` needs most.
-3. Drop unused prelude functions (or run a DCE pass) so the size reflects only
-   what is used.
-4. A checker that a module stays inside the subset, run in CI next to the
-   proofs.
+2. In-place array updates where they are safe (a uniqueness analysis, or Lean's
+   own borrow annotations), instead of copying on every update.
+3. A smaller codec (the generic instances are specialized once per type), and
+   dead-code elimination of the prelude.
+4. Build this in CI and run `regression.ts` next to the Lasm tests; then the
+   `/wasm` page could offer both engines.
 
 ## Running it
 
@@ -85,6 +138,10 @@ wasm-tools parse out/demo.wat -o out/demo.wasm && wasm-tools validate out/demo.w
 deno run -R run.ts > out/wasm.txt            # same lines as: lake env lean --run native.lean
 lake exe emitwasm DemoU32 U.treeSize > out/u32.wat && wasm-tools parse out/u32.wat -o out/u32.wasm
 deno run -R compare_u32.ts
+# the jinro engine
+lake exe emitwasm --list-io JinroFlat Jinro.Flat.handle > out/jinro.wat
+wasm-tools parse out/jinro.wat -o out/jinro.wasm && wasm-tools validate out/jinro.wasm
+deno run -R --allow-env=BASE_URL regression.ts   # needs `deno task wasm` for the Lasm timing
 ```
 
 Needs Lean 4.35.0 (elan), `wasm-tools` (`cargo install wasm-tools`) and Deno.
