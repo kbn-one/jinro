@@ -14,6 +14,7 @@ jinro/
 │   ├── Jinro/Wire.lean    # the JSON protocol
 │   ├── Jinro/Proofs.lean  # theorems about Engine (checked on every build)
 │   └── Main.lean          # stdin -> stdout
+├── research/wasmgc/ # experiment: Lean IR -> WasmGC backend without Lean's C runtime (see its README)
 ├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
 │   ├── client/      # pages / islands; /wasm is the engine playground
 │   └── server/      # router, API, Cloudflare Worker (kept for later use)

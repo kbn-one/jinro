@@ -1,0 +1,15 @@
+name = "wasmgc"
+defaultTargets = ["Demo", "DemoU32", "emitwasm"]
+
+# A tiny program to compile.
+[[lean_lib]]
+name = "Demo"
+
+[[lean_lib]]
+name = "DemoU32"
+
+# The backend: reads a module's compiled IR from its .olean and prints WasmGC text (WAT).
+[[lean_exe]]
+name = "emitwasm"
+root = "Emit"
+supportInterpreter = true
