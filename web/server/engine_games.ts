@@ -113,8 +113,13 @@ export async function playGame(
         target: rand() < 0.9 ? pick(ids) : undefined,
       });
     }
-    // Shuffle, since order matters (first guard wins, logs follow action order).
-    actions.sort(() => rand() - 0.5);
+    // Shuffle, since order matters (first guard wins, logs follow action order). Fisher–Yates,
+    // not `sort(() => rand() - 0.5)`: with an inconsistent comparator the order is
+    // implementation-defined, and V8 really does sort differently once the JIT optimizes it.
+    for (let i = actions.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [actions[i], actions[j]] = [actions[j], actions[i]];
+    }
     let result;
     [result, village, today] = engine.processDay(village, actions);
     hashes.push(await sha256(canonical([result, village, today])));
@@ -136,6 +141,6 @@ if (import.meta.main) {
   const engine = await loadEngine(Deno.args[0]);
   const fixture: Record<string, string[]> = {};
   for (const seed of SEEDS) fixture[seed] = await playGame(engine, seed);
-  await Deno.writeTextFile(FIXTURE, JSON.stringify(fixture, null, 1) + "\n");
+  await Deno.writeTextFile(FIXTURE, JSON.stringify(fixture, null, 2) + "\n");
   console.log(`wrote ${FIXTURE.pathname}`);
 }
