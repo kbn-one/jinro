@@ -32,6 +32,8 @@ structure St where
   /-- Function name → wasm index name, in emission order. -/
   funIds : Std.HashMap Name Nat := {}
   labels : Nat := 0
+  /-- String literals, emitted as passive data segments `$s0`, `$s1`, … -/
+  lits : Array String := #[]
 
 abbrev M := StateT St (ExceptT String IO)
 
@@ -44,13 +46,42 @@ def unsupported {α} (what : String) : M α := throw s!"unsupported: {what}"
 
 def wasmTy : IRType → M String
   | .object | .tobject | .tagged | .erased | .void => pure "anyref"
-  | .uint8 | .uint16 | .uint32 => pure "i32"
-  | .uint64 | .usize => pure "i64"
+  -- USize is 32 bits: wasm here is a 32-bit platform (`System.Platform.numBits` = 32).
+  | .uint8 | .uint16 | .uint32 | .usize => pure "i32"
+  | .uint64 => pure "i64"
   | t => unsupported s!"type {format t}"
 
 def isScalar (t : IRType) : Bool := t.isScalar
 
 /-! ## Externs: C name → WAT function (all defined in `prelude`) -/
+
+/-- Implemented in `strings.wat`, which is included only when a program uses one of them. -/
+def stringExterns : List (String × String) :=
+  [("lean_string_append", "$str_append"), ("lean_string_compare", "$str_compare"),
+   ("lean_string_dec_eq", "$str_eq"), ("lean_string_get_byte_fast", "$str_get_byte"),
+   ("lean_string_length", "$str_length"), ("lean_string_memcmp", "$str_memcmp"),
+   ("lean_string_mk", "$str_of_list"), ("lean_string_of_usize", "$usize_repr"),
+   ("lean_string_offsetofpos", "$str_offset_of_pos"), ("lean_string_posof", "$str_pos_of"),
+   ("lean_string_push", "$str_push"), ("lean_string_pushn", "$str_pushn"),
+   ("lean_string_utf8_byte_size", "$str_byte_size"), ("lean_string_utf8_extract", "$str_extract"),
+   ("lean_string_utf8_get", "$str_get"), ("lean_string_utf8_get_fast", "$str_get"),
+   ("lean_string_utf8_next", "$str_next"), ("lean_string_utf8_next_fast", "$str_next"),
+   ("lean_string_utf8_prev", "$str_prev"),
+   ("lean_byte_array_mk", "$bytes_of_array"), ("lean_byte_array_fget", "$bytes_get"),
+   ("lean_panic_fn_borrowed", "$panic"), ("lean_system_platform_nbits", "$num_bits"),
+   ("lean_nat_to_int", "$int_of_nat"), ("lean_nat_abs", "$int_nat_abs"),
+   ("lean_int_add", "$int_add"), ("lean_int_sub", "$int_sub"), ("lean_int_mul", "$int_mul"),
+   ("lean_int_neg", "$int_neg"), ("lean_int_dec_eq", "$int_eq"), ("lean_int_dec_le", "$int_le"),
+   ("lean_int_dec_lt", "$int_lt"), ("lean_nat_pow", "$nat_pow"), ("lean_nat_shiftr", "$nat_shiftr"),
+   ("lean_uint16_dec_lt", "$u16_lt"), ("lean_uint16_lor", "$u16_or"),
+   ("lean_uint16_shift_left", "$u16_shl"), ("lean_uint16_to_uint32", "$u16_to_u32"),
+   ("lean_uint32_land", "$u32_and"), ("lean_uint32_lor", "$u32_or"),
+   ("lean_uint32_shift_left", "$u32_shl"), ("lean_uint32_to_nat", "$u32_to_nat"),
+   ("lean_uint32_to_uint16", "$u32_to_u16"), ("lean_uint8_dec_eq", "$u8_eq"),
+   ("lean_uint8_to_nat", "$u8_to_nat"), ("lean_usize_sub", "$usize_sub"),
+   ("lean_array_pop", "$arr_pop")]
+
+def stringRuntime : String := include_str "strings.wat"
 
 def externImpl : List (String × String) :=
   [("lean_nat_add", "$nat_add"), ("lean_nat_sub", "$nat_sub"), ("lean_nat_mul", "$nat_mul"),
@@ -62,7 +93,7 @@ def externImpl : List (String × String) :=
    ("lean_uint32_mul", "$u32_mul"), ("lean_uint32_div", "$u32_div"),
    ("lean_uint32_mod", "$u32_mod"), ("lean_uint32_dec_eq", "$u32_eq"),
    ("lean_uint32_dec_lt", "$u32_lt"), ("lean_uint32_dec_le", "$u32_le"),
-   ("lean_usize_of_nat", "$nat_val"), ("lean_usize_to_nat", "$nat_mk"),
+   ("lean_usize_of_nat", "$usize_of_nat"), ("lean_usize_to_nat", "$usize_to_nat"),
    ("lean_usize_add", "$usize_add"), ("lean_usize_dec_eq", "$usize_eq"),
    ("lean_usize_dec_lt", "$usize_lt"),
    -- Arrays are WasmGC arrays, never updated in place (see `prelude`).
@@ -73,7 +104,9 @@ def externImpl : List (String × String) :=
    ("lean_array_get", "$arr_get"), ("lean_array_get_borrowed", "$arr_get"),
    ("lean_array_uget", "$arr_uget"), ("lean_array_uget_borrowed", "$arr_uget"),
    ("lean_array_fset", "$arr_fset"), ("lean_array_uset", "$arr_uset"),
-   ("lean_array_push", "$arr_push")]
+   ("lean_array_push", "$arr_push")] ++ stringExterns
+
+
 
 def externName (d : ExternAttrData) : Option String :=
   d.entries.findSome? fun
@@ -174,24 +207,35 @@ def emitExpr (env : Environment) (ty : IRType) : IR.Expr → M Unit
     line "array.get $fields"
   | .fap c ys => do emitArgs env c ys; line s!"call {← funRef env c}"
   | .box t x => do
+    match t with
+    -- may not fit an i31: box as a Nat
+    | .uint32 | .usize => line s!"(call $nat_mk (i64.extend_i32_u (local.get {var x})))"
+    | _ =>
     match ← wasmTy t with
     | "i32" => line s!"(ref.i31 (local.get {var x}))"
     | "i64" => line s!"(call $nat_mk (local.get {var x}))"
     | _ => line s!"local.get {var x}"
   | .unbox x => do
+    match ty with
+    | .uint32 | .usize => line s!"(i32.wrap_i64 (call $nat_val (local.get {var x})))"
+    | _ =>
     match ← wasmTy ty with
     | "i32" => line s!"(i31.get_u (ref.cast (ref i31) (local.get {var x})))"
     | "i64" => line s!"(call $nat_val (local.get {var x}))"
     | _ => line s!"local.get {var x}"
   | .lit (.num v) => do
     match ← wasmTy ty with
-    | "i32" => line s!"i32.const {v}"
-    | "i64" => line s!"i64.const {v}"
+    | "i32" => line s!"i32.const {v % 2 ^ 32}"
+    | "i64" => line s!"i64.const {v % 2 ^ 64}"
     | _ =>
       if v < 2 ^ 30 then line s!"(ref.i31 (i32.const {v}))"
       else line s!"(struct.new $big (i64.const {v}))"
   | .isShared _ => line "i32.const 1"
-  | .lit (.str _) => unsupported "string literals"
+  | .lit (.str v) => do
+    let k ← modifyGet fun st => (st.lits.size, { st with lits := st.lits.push v })
+    let n := v.utf8ByteSize
+    line s!"(struct.new $str (struct.new $buf (array.new_data $bytes $s{k} (i32.const 0) (i32.const {n}))"
+    line s!"  (i32.const {n})) (i32.const {n}))"
   | .pap c ys => do
     -- A closure: the function (always a boxed variant, all `anyref`), its arity, the arguments.
     let ps := (findEnvDecl env c).map (·.params) |>.getD #[]
@@ -296,6 +340,16 @@ def emitDecl (env : Environment) (exports : List Name) : Decl → M Unit
     let id ← funRef env f
     let params ← xs.mapM fun p => do pure s!"(param {var p.x} {← wasmTy p.ty})"
     let exp := if exports.contains f then s!" (export \"{f}\")" else ""
+    -- A constant (no parameters, e.g. `_closed_N`) is computed once, as Lean's C backend does at
+    -- startup: here on first use, kept in a global.
+    let memo := xs.isEmpty && (← wasmTy ty) == "anyref"
+    if memo then
+      line s!"(global {id}_g (mut anyref) (ref.null any))"
+      line s!"(func {id}{exp} (result anyref)"
+      line s!"  (if (ref.is_null (global.get {id}_g)) (then (global.set {id}_g (call {id}_init))))"
+      line s!"  (global.get {id}_g))"
+    let id := if memo then s!"{id}_init" else id
+    let exp := if memo then "" else exp
     line s!"(func {id}{exp} {" ".intercalate params.toList} (result {← wasmTy ty})"
     let ps := xs.map (·.x.idx)
     let mut declared : Std.HashSet Nat := {}
@@ -380,9 +434,12 @@ def prelude : String := "
 (func $u32_le (param i32 i32) (result i32) (i32.le_u (local.get 0) (local.get 1)))
 (func $nat_dec_le (param $a anyref) (param $b anyref) (result i32)
   (i64.le_u (call $nat_val (local.get $a)) (call $nat_val (local.get $b))))
-(func $usize_add (param i64 i64) (result i64) (i64.add (local.get 0) (local.get 1)))
-(func $usize_eq (param i64 i64) (result i32) (i64.eq (local.get 0) (local.get 1)))
-(func $usize_lt (param i64 i64) (result i32) (i64.lt_u (local.get 0) (local.get 1)))
+(func $usize_add (param i32 i32) (result i32) (i32.add (local.get 0) (local.get 1)))
+(func $usize_eq (param i32 i32) (result i32) (i32.eq (local.get 0) (local.get 1)))
+(func $usize_lt (param i32 i32) (result i32) (i32.lt_u (local.get 0) (local.get 1)))
+;; USize.ofNat is `n % 2^32`
+(func $usize_of_nat (param $n anyref) (result i32) (i32.wrap_i64 (call $nat_val (local.get $n))))
+(func $usize_to_nat (param $n i32) (result anyref) (call $nat_mk (i64.extend_i32_u (local.get $n))))
 
 ;; Array: a $fields array of exactly its size. Lean updates an array in place when it holds the
 ;; only reference; without reference counts we cannot know that, so every update copies.
@@ -392,12 +449,11 @@ def prelude : String := "
   (array.new $fields (local.get $v) (i32.wrap_i64 (call $nat_val (local.get $n)))))
 (func $arr_size (param $a anyref) (result anyref)
   (ref.i31 (array.len (call $arr (local.get $a)))))
-(func $arr_usize (param $a anyref) (result i64)
-  (i64.extend_i32_u (array.len (call $arr (local.get $a)))))
+(func $arr_usize (param $a anyref) (result i32) (array.len (call $arr (local.get $a))))
 (func $arr_fget (param $a anyref) (param $i anyref) (result anyref)
   (array.get $fields (call $arr (local.get $a)) (i32.wrap_i64 (call $nat_val (local.get $i)))))
-(func $arr_uget (param $a anyref) (param $i i64) (result anyref)
-  (array.get $fields (call $arr (local.get $a)) (i32.wrap_i64 (local.get $i))))
+(func $arr_uget (param $a anyref) (param $i i32) (result anyref)
+  (array.get $fields (call $arr (local.get $a)) (local.get $i)))
 ;; `a[i]!`: the default (the `Inhabited` value) when out of bounds. Lean would also report a panic.
 (func $arr_get (param $d anyref) (param $a anyref) (param $i anyref) (result anyref)
   (local $j i64)
@@ -412,13 +468,13 @@ def prelude : String := "
   (array.copy $fields $fields (local.get $b) (i32.const 0) (call $arr (local.get $a)) (i32.const 0)
     (array.len (call $arr (local.get $a))))
   (local.get $b))
-(func $arr_uset (param $a anyref) (param $i i64) (param $v anyref) (result anyref)
+(func $arr_uset (param $a anyref) (param $i i32) (param $v anyref) (result anyref)
   (local $b (ref $fields))
   (local.set $b (call $arr_copy (local.get $a) (array.len (call $arr (local.get $a)))))
-  (array.set $fields (local.get $b) (i32.wrap_i64 (local.get $i)) (local.get $v))
+  (array.set $fields (local.get $b) (local.get $i) (local.get $v))
   (local.get $b))
 (func $arr_fset (param $a anyref) (param $i anyref) (param $v anyref) (result anyref)
-  (call $arr_uset (local.get $a) (call $nat_val (local.get $i)) (local.get $v)))
+  (call $arr_uset (local.get $a) (i32.wrap_i64 (call $nat_val (local.get $i))) (local.get $v)))
 (func $arr_push (param $a anyref) (param $v anyref) (result anyref)
   (local $b (ref $fields)) (local $n i32)
   (local.set $n (array.len (call $arr (local.get $a))))
@@ -571,7 +627,97 @@ def listHelpers (entry : String) : String := s!"
   (local.get $n))
 "
 
-def emitModule (env : Environment) (roots : List Name) (listIO := false) : M Unit := do
+/-- How the host talks to the program. -/
+inductive HostIO where
+  /-- Only the roots, exported under their Lean names. -/
+  | plain
+  /-- `List Nat` in and out, through `i32`s (`listHelpers`). -/
+  | listNat
+  /-- `String` in and out, as JS strings (`jsStringHelpers`). -/
+  | jsString
+
+/-- For a host that hands over a JS string and gets one back: `run(string) -> string` calls the
+    first root (`String → String`). Uses the JS String Builtins (`wasm:js-string`), which the
+    host enables with `WebAssembly.compile(bytes, { builtins: [\"js-string\"] })`; UTF-16 is
+    turned into Lean's UTF-8 on the way in and back on the way out. -/
+def jsStringImports : String := "
+(type $u16s (array (mut i16)))
+(import \"wasm:js-string\" \"length\" (func $js_length (param externref) (result i32)))
+(import \"wasm:js-string\" \"charCodeAt\" (func $js_char_code_at (param externref i32) (result i32)))
+(import \"wasm:js-string\" \"fromCharCodeArray\"
+  (func $js_from_char_code_array (param (ref null $u16s) i32 i32) (result (ref extern))))
+"
+
+def jsStringHelpers (entry : String) : String := s!"
+(func (export \"run\") (param $in externref) (result externref)
+  (local $n i32) (local $i i32) (local $c i32) (local $d i32) (local $s anyref)
+  (local $out anyref) (local $u (ref $u16s)) (local $j i32) (local $k i32)
+  (local.set $n (call $js_length (local.get $in)))
+  (local.set $s (call $str_alloc (i32.mul (local.get $n) (i32.const 3))))
+  (block $done (loop $more
+    (br_if $done (i32.ge_u (local.get $i) (local.get $n)))
+    (local.set $c (call $js_char_code_at (local.get $in) (local.get $i)))
+    (local.set $i (i32.add (local.get $i) (i32.const 1)))
+    (if (i32.eq (i32.and (local.get $c) (i32.const 0xfc00)) (i32.const 0xd800))
+      (then
+        (local.set $c (i32.const 0xfffd))
+        (if (i32.lt_u (local.get $i) (local.get $n))
+          (then
+            (local.set $d (call $js_char_code_at (local.get $in) (local.get $i)))
+            (if (i32.eq (i32.and (local.get $d) (i32.const 0xfc00)) (i32.const 0xdc00))
+              (then
+                (local.set $c (i32.add (i32.const 0x10000) (i32.or
+                  (i32.shl (i32.and (call $js_char_code_at (local.get $in) (i32.sub (local.get $i) (i32.const 1)))
+                    (i32.const 0x3ff)) (i32.const 10))
+                  (i32.and (local.get $d) (i32.const 0x3ff)))))
+                (local.set $i (i32.add (local.get $i) (i32.const 1)))))))))
+    (if (i32.eq (i32.and (local.get $c) (i32.const 0xfc00)) (i32.const 0xdc00))
+      (then (local.set $c (i32.const 0xfffd))))
+    (local.set $s (call $str_push (local.get $s) (local.get $c)))
+    (br $more)))
+  (local.set $out (call {entry} (local.get $s)))
+  ;; UTF-8 back to UTF-16: never more code units than bytes
+  (local.set $n (call $slen (local.get $out)))
+  (local.set $u (array.new_default $u16s (local.get $n)))
+  (local.set $i (i32.const 0))
+  (block $done (loop $more
+    (br_if $done (i32.ge_u (local.get $i) (local.get $n)))
+    (local.set $c (call $str_decode (local.get $out) (local.get $i)))
+    (local.set $i (i32.add (local.get $i) (call $lead_size (call $sbyte (local.get $out) (local.get $i)))))
+    (if (i32.ge_u (local.get $c) (i32.const 0x10000))
+      (then
+        (local.set $c (i32.sub (local.get $c) (i32.const 0x10000)))
+        (array.set $u16s (local.get $u) (local.get $j)
+          (i32.or (i32.const 0xd800) (i32.shr_u (local.get $c) (i32.const 10))))
+        (array.set $u16s (local.get $u) (i32.add (local.get $j) (i32.const 1))
+          (i32.or (i32.const 0xdc00) (i32.and (local.get $c) (i32.const 0x3ff))))
+        (local.set $j (i32.add (local.get $j) (i32.const 2))))
+      (else
+        (array.set $u16s (local.get $u) (local.get $j) (local.get $c))
+        (local.set $j (i32.add (local.get $j) (i32.const 1)))))
+    (br $more)))
+  (call $js_from_char_code_array (local.get $u) (i32.const 0) (local.get $j)))
+"
+
+partial def usesStrings (env : Environment) : FnBody → Bool
+  | .vdecl _ _ e b =>
+    (match e with
+      | .lit (.str _) => true
+      | .fap c _ => match findEnvDecl env c with
+        | some (.extern _ _ _ ext) =>
+          (externName ext).any fun n => stringExterns.any (·.1 == n)
+        | _ => false
+      | _ => false) || usesStrings env b
+  | .jdecl _ _ v b => usesStrings env v || usesStrings env b
+  | .case _ _ _ alts => alts.any (usesStrings env ·.body)
+  | b => !b.isTerminal && usesStrings env b.body
+
+/-- A string's bytes as a WAT string literal. -/
+def watBytes (v : String) : String :=
+  let hex (n : Nat) : Char := Char.ofNat (if n < 10 then 48 + n else 87 + n)
+  v.toUTF8.foldl (fun acc b => (acc.push '\\').push (hex (b.toNat / 16)) |>.push (hex (b.toNat % 16))) ""
+
+def emitModule (env : Environment) (roots : List Name) (io := HostIO.plain) : M Unit := do
   let decls ← match collect env roots with
     | .ok ds => pure ds
     | .error e => throw e
@@ -583,11 +729,19 @@ def emitModule (env : Environment) (roots : List Name) (listIO := false) : M Uni
   let arities := targets.foldl (fun acc c =>
     let k := (findEnvDecl env c).map (·.params.size) |>.getD 0
     if acc.contains k then acc else acc ++ [k]) ([] : List Nat)
+  let strings := io matches .jsString || decls.any fun
+    | .fdecl _ _ _ b _ => usesStrings env b
+    | _ => false
   line "(module"
+  -- imports come before every definition
+  if io matches .jsString then line jsStringImports
   line prelude
-  if listIO then
-    let some r := roots.head? | throw "--list-io needs a root"
-    line (listHelpers (← funRef env r))
+  if strings then line stringRuntime
+  match io, roots.head? with
+  | .listNat, some r => line (listHelpers (← funRef env r))
+  | .jsString, some r => line (jsStringHelpers (← funRef env r))
+  | .plain, _ => pure ()
+  | _, none => throw "the host interface needs a root"
   if !targets.isEmpty then
     line (closureRuntime arities)
     let refs ← targets.toList.mapM (funRef env)
@@ -595,6 +749,9 @@ def emitModule (env : Environment) (roots : List Name) (listIO := false) : M Uni
   for d in decls do
     line s!";; {d.name}"
     emitDecl env roots d
+  let lits := (← get).lits
+  for h : k in [0:lits.size] do
+    line s!"(data $s{k} \"{watBytes lits[k]}\")"
   line ")"
 
 end WasmGC
@@ -617,7 +774,10 @@ partial def needs (env : Environment) : FnBody → Array String
       | _ => #[]
     here ++ ty ++ needs env b
   | .jdecl _ _ v b => needs env v ++ needs env b
-  | .case _ _ _ alts => alts.foldl (fun acc a => acc ++ needs env a.body) #[]
+  | .case tid _ xty alts =>
+    let here := if [``Int, ``String, ``Nat, ``Array, ``ByteArray, ``Thunk, ``Task].contains tid
+      then #[s!"case on {tid} ({format xty})"] else #[]
+    alts.foldl (fun acc a => acc ++ needs env a.body) here
   | .uset .. => #["uset"]
   | b => if b.isTerminal then #[] else needs env b.body
 
@@ -637,14 +797,15 @@ unsafe def main (args : List String) : IO UInt32 := do
               seen := seen.insert n; IO.println n
       IO.println s!"{ds.size} declarations"
       return 0
-  let (listIO, args) := match args with
-    | "--list-io" :: rest => (true, rest)
-    | _ => (false, args)
+  let (io, args) := match args with
+    | "--list-io" :: rest => (WasmGC.HostIO.listNat, rest)
+    | "--js-string" :: rest => (.jsString, rest)
+    | _ => (.plain, args)
   let mod :: roots := args
-    | IO.eprintln "usage: emitwasm [--needs | --list-io] <Module> <root>..."; return 2
+    | IO.eprintln "usage: emitwasm [--needs | --list-io | --js-string] <Module> <root>..."; return 2
   enableInitializersExecution
   initSearchPath (← findSysroot)
   let env ← importModules #[{ module := mod.toName }] {} (loadExts := true)
-  match ← (WasmGC.emitModule env (roots.map String.toName) listIO).run {} |>.run with
+  match ← (WasmGC.emitModule env (roots.map String.toName) io).run {} |>.run with
   | .ok ((), st) => IO.println ("\n".intercalate st.out.toList); return 0
   | .error e => IO.eprintln e; return 1

@@ -1,5 +1,5 @@
 name = "wasmgc"
-defaultTargets = ["Demo", "DemoU32", "JinroFlat", "emitwasm"]
+defaultTargets = ["Demo", "DemoU32", "JinroFlat", "JinroWire", "emitwasm"]
 
 # The real engine, unchanged.
 [[require]]
@@ -16,6 +16,10 @@ name = "DemoU32"
 # jinro's rules behind a List Nat boundary (no strings, no JSON).
 [[lean_lib]]
 name = "JinroFlat"
+
+# jinro with its JSON protocol: strings, Lean.Json and all.
+[[lean_lib]]
+name = "JinroWire"
 
 # The backend: reads a module's compiled IR from its .olean and prints WasmGC text (WAT).
 [[lean_exe]]
