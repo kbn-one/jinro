@@ -1,10 +1,8 @@
-// Replays the 40 seeded games of web/server/engine_games.ts on the WasmGC builds and compares every
-// response's hash with the fixture the Lasm build is tested against. Then times every build.
+// Replays the 40 seeded games of web/server/engine_games.ts on the List Nat build (JinroFlat:
+// out/jinro.wasm) and compares every response's hash with the fixture the engine is tested
+// against. Then times it against the engine itself (the JSON build, `deno task wasm`).
 //
 //   deno run -R --allow-env=BASE_URL regression.ts
-//
-// out/jinro.wasm: the engine behind a List Nat boundary (JinroFlat, host does the JSON)
-// out/wire.wasm:  the engine with its JSON protocol (JinroWire: Lean.Json, strings as JS strings)
 import type { Engine } from "../../web/client/jinro.ts";
 import {
   FIXTURE,
@@ -13,46 +11,32 @@ import {
   SEEDS,
 } from "../../web/server/engine_games.ts";
 import { engineFromGC } from "./jinro_gc.ts";
-import { compileWire, engineFromWire } from "./jinro_wire_gc.ts";
 
-const out = (f: string) => new URL(`./out/${f}`, import.meta.url);
+const flat = engineFromGC(
+  await WebAssembly.compile(
+    await Deno.readFile(new URL("./out/jinro.wasm", import.meta.url)),
+  ),
+);
 const fixture: Record<string, string[]> = JSON.parse(
   await Deno.readTextFile(FIXTURE),
 );
 
-const builds: [string, Engine][] = [
-  [
-    "WasmGC, List Nat",
-    engineFromGC(
-      await WebAssembly.compile(await Deno.readFile(out("jinro.wasm"))),
-    ),
-  ],
-  [
-    "WasmGC, JSON    ",
-    engineFromWire(await compileWire(await Deno.readFile(out("wire.wasm")))),
-  ],
-];
-
-let failed = false;
-for (const [label, engine] of builds) {
-  let same = 0;
-  for (const seed of SEEDS) {
-    const got = await playGame(engine, seed);
-    const want = fixture[seed];
-    if (got.length === want.length && got.every((h, i) => h === want[i])) {
-      same++;
-    } else {
-      const at = got.findIndex((h, i) => h !== want[i]);
-      console.log(`${label}: seed ${seed} differs at response ${at}`);
-    }
+let same = 0;
+for (const seed of SEEDS) {
+  const got = await playGame(flat, seed);
+  const want = fixture[seed];
+  if (got.length === want.length && got.every((h, i) => h === want[i])) {
+    same++;
+  } else {
+    const at = got.findIndex((h, i) => h !== want[i]);
+    console.log(`seed ${seed} differs at response ${at}`);
   }
-  console.log(
-    `${label}: ${same}/${SEEDS.length} games identical to the fixture`,
-  );
-  if (same !== SEEDS.length) failed = true;
 }
+console.log(
+  `List Nat build: ${same}/${SEEDS.length} games identical to the fixture`,
+);
 
-// Speed: all 40 games, hashing included (the same for every build).
+// Speed: all 40 games, hashing included (the same for both).
 const time = async (label: string, engine: Engine) => {
   for (const seed of SEEDS) await playGame(engine, seed);
   const t0 = performance.now();
@@ -64,10 +48,6 @@ const time = async (label: string, engine: Engine) => {
     `${label}: ${((performance.now() - t0) / runs).toFixed(0)} ms for 40 games`,
   );
 };
-for (const [label, engine] of builds) await time(label, engine);
-try {
-  await time("Lasm            ", await loadEngine());
-} catch (e) {
-  console.log(`Lasm build not found (deno task wasm): ${e}`);
-}
-if (failed) Deno.exit(1);
+await time("List Nat build     ", flat);
+await time("engine (JSON build)", await loadEngine());
+if (same !== SEEDS.length) Deno.exit(1);

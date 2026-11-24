@@ -3,9 +3,8 @@
 # mise and runs `mise run build` (its default build-command) with BASE_URL set.
 [tools]
 deno = "latest"
-# Lasm (deno task wasm) needs Node 24+.
-node = "latest"
 
 [tasks.build]
-description = "Build the engine (Lean via Lasm) for the browser, then the static site into web/dist"
-run = "deno task wasm && deno task build"
+description = "Build the engine (Lean, our WasmGC backend) for the browser, then the static site into web/dist"
+# scripts/with-lean.sh installs elan (Lean) and wasm-tools when they are missing.
+run = "scripts/with-lean.sh deno task wasm && deno task build"

@@ -92,6 +92,10 @@ for (
       "MoonBit をやめて Rust + Aeneas へ",
     ],
     ["/blog/2026-11-20-rust-to-lean-lasm", "Rust をやめて Lean + Lasm へ"],
+    [
+      "/blog/2026-11-24-lasm-to-wasmgc",
+      "Lasm をやめて自作の WasmGC バックエンドへ",
+    ],
   ] as const
 ) {
   Deno.test(`GET ${path} renders inside the shell`, async () => {

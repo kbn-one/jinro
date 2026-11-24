@@ -649,6 +649,10 @@ def jsStringImports : String := "
 "
 
 def jsStringHelpers (entry : String) : String := s!"
+;; For hosts without the JS String Builtins: their JS stand-in for `fromCharCodeArray` reads the
+;; array through this (`web/client/jinro.ts`).
+(func (export \"u16_at\") (param $a (ref null $u16s)) (param $i i32) (result i32)
+  (array.get_u $u16s (local.get $a) (local.get $i)))
 (func (export \"run\") (param $in externref) (result externref)
   (local $n i32) (local $i i32) (local $c i32) (local $d i32) (local $s anyref)
   (local $out anyref) (local $u (ref $u16s)) (local $j i32) (local $k i32)

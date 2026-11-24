@@ -1,5 +1,14 @@
 # Lean IR → WasmGC: a small experiment
 
+> **Since 2026-11-24 this is how the engine is built.** The backend moved to
+> `lean-engine/WasmGC/` (`Emit.lean`, `strings.wat`), `deno task wasm` runs it
+> on `Jinro.Wire.run`, and the Lasm build is gone. What stays here is the record
+> of how it came about: the demos, the `List Nat` boundary (`JinroFlat.lean`)
+> and these notes. File names below are as they were at the time;
+> `JinroWire.lean` is now `Jinro.Wire.run`, `jinro_wire_gc.ts` is
+> `web/client/jinro.ts`, and `differential.ts` lives on as
+> `web/server/engine_protocol.test.ts`.
+
 Can Lean programs run as WebAssembly **without Lean's C runtime**, using WasmGC
 for memory? This is a backend of about 800 lines of Lean (`Emit.lean`) and 400
 of hand-written WAT (its prelude and `strings.wat`) that reads the IR Lean's own
@@ -195,27 +204,27 @@ that — easier from LCNF, which still has the types, than from IR.
    own borrow annotations), instead of copying on every update.
 3. Dead-code elimination of the prelude, and a look at what `Lean.Json` and
    `Init` bring in (73 of `wire.wasm`'s 109 KB of code).
-4. Build this in CI and run `regression.ts` and `differential.ts` next to the
-   Lasm tests; then the `/wasm` page could offer the WasmGC engine.
+4. ~~Build this in CI and offer it on the `/wasm` page~~ — done: it is the
+   engine's build (2026-11-24).
 5. Bignums, so that `Nat` is `Nat` everywhere and not only below 2^63.
 
 ## Running it
 
+The backend is `lean-engine`'s `emitwasm`; this package requires `lean-engine`,
+so `lake exe emitwasm` works here too.
+
 ```sh
-lake build                                   # Demo, DemoU32, the emitwasm backend
+lake build                                   # Demo, DemoU32, JinroFlat (and lean-engine)
 lake exe emitwasm Demo fib treeSize sumTo > out/demo.wat
 wasm-tools parse out/demo.wat -o out/demo.wasm && wasm-tools validate out/demo.wasm
 deno run -R run.ts > out/wasm.txt            # same lines as: lake env lean --run native.lean
 lake exe emitwasm DemoU32 U.treeSize > out/u32.wat && wasm-tools parse out/u32.wat -o out/u32.wasm
 deno run -R compare_u32.ts
-# the jinro engine
+# the jinro rules behind a List Nat boundary, against the fixture and timed against the engine
 lake exe emitwasm --list-io JinroFlat Jinro.Flat.handle > out/jinro.wat
 wasm-tools parse out/jinro.wat -o out/jinro.wasm && wasm-tools validate out/jinro.wasm
-# the jinro engine with its JSON protocol
-lake exe emitwasm --js-string JinroWire Jinro.WireGC.run > out/wire.wat
-wasm-tools parse out/wire.wat -o out/wire.wasm && wasm-tools validate out/wire.wasm
-deno run -R --allow-env=BASE_URL regression.ts     # needs `deno task wasm` for the Lasm timing
-deno run -R --allow-env=BASE_URL differential.ts   # needs `deno task wasm`
+deno run -R --allow-env=BASE_URL regression.ts   # needs `deno task wasm` for the engine
 ```
 
-Needs Lean 4.35.0 (elan), `wasm-tools` (`cargo install wasm-tools`) and Deno.
+Needs Lean 4.35.0 (elan), `wasm-tools` and Deno (`scripts/with-lean.sh` installs
+the first two).

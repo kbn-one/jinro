@@ -7,17 +7,21 @@
  * `engine_games.fixture.json`.
  *
  * The fixture was recorded when the Lean engine replaced the Rust one, after 40 games had matched
- * between the two byte for byte. Regenerate it only for an intended change of the rules:
+ * between the two byte for byte, and re-recorded when the shuffle below changed. The WasmGC build
+ * matched it when it replaced the Lasm build. Regenerate it only for an intended change of the
+ * rules:
  *
  *   deno run -R -W --allow-env=BASE_URL web/server/engine_games.ts
  */
 
 import {
   type Action,
+  compileEngine,
   type Engine,
   engineFrom,
   type Role,
   type RoleType,
+  runFrom,
 } from "../client/jinro.ts";
 
 export const SEEDS = Array.from({ length: 40 }, (_, i) => i + 1);
@@ -127,18 +131,19 @@ export async function playGame(
   return hashes;
 }
 
-export async function loadEngine(file = "jinro.wasm"): Promise<Engine> {
-  return engineFrom(
-    await WebAssembly.compile(
-      await Deno.readFile(
-        new URL(`../client/static/jinro/${file}`, import.meta.url),
-      ),
-    ),
-  );
+const WASM = new URL("../client/static/jinro/jinro.wasm", import.meta.url);
+
+export async function loadEngine(): Promise<Engine> {
+  return engineFrom(await compileEngine(await Deno.readFile(WASM)));
+}
+
+/** The engine as text in, text out (`run`), for checking responses byte for byte. */
+export async function loadRaw(): Promise<(request: string) => string> {
+  return runFrom(await compileEngine(await Deno.readFile(WASM)));
 }
 
 if (import.meta.main) {
-  const engine = await loadEngine(Deno.args[0]);
+  const engine = await loadEngine();
   const fixture: Record<string, string[]> = {};
   for (const seed of SEEDS) fixture[seed] = await playGame(engine, seed);
   await Deno.writeTextFile(FIXTURE, JSON.stringify(fixture, null, 2) + "\n");

@@ -15,8 +15,8 @@ export default function Home(_handle: Handle) {
     <>
       <h1>jinro</h1>
       <p>
-        人狼ゲームエンジン。ルールを Lean で書いて性質を証明し、Lasm で wasm
-        にコンパイルして配布します。
+        人狼ゲームエンジン。ルールを Lean で書いて性質を証明し、自作の WasmGC
+        バックエンドで wasm にコンパイルして配布します。
       </p>
       <p>
         <a href={routes.wasm.href()}>wasm デモ →</a>{" "}

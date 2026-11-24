@@ -14,12 +14,10 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      # The engine (lean-engine, built by Lasm, which needs Node 24+) goes to
+      # The engine (lean-engine: Lean, compiled by our WasmGC backend) goes to
       # web/client/static/jinro/jinro.wasm; the demo and the tests need it.
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - run: deno task wasm
+      # with-lean.sh installs elan and wasm-tools; `lake build` also checks the proofs.
+      - run: scripts/with-lean.sh deno task wasm
       - run: deno task check
       - run: deno task test
       - run: deno task build

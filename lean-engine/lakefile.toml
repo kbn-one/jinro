@@ -1,7 +1,14 @@
 name = "jinro"
-defaultTargets = ["Jinro"]
+defaultTargets = ["Jinro", "emitwasm"]
 
-# The jinro engine written directly in Lean. `Main.lean` is the WASI command
-# Lasm builds (`deno task wasm`); `Jinro.Proofs` is checked at that build.
+# The jinro engine written directly in Lean: the rules (`Jinro.Engine`), the JSON protocol
+# (`Jinro.Wire`) and the theorems about the rules (`Jinro.Proofs`, checked by every build).
 [[lean_lib]]
 name = "Jinro"
+
+# Our WasmGC backend: reads the IR Lean's compiler produces for a module and prints a WasmGC
+# text module, with no Lean C runtime. `deno task wasm` runs it on `Jinro.Wire.run`.
+[[lean_exe]]
+name = "emitwasm"
+root = "WasmGC.Emit"
+supportInterpreter = true
