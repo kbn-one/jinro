@@ -226,5 +226,5 @@ wasm-tools parse out/jinro.wat -o out/jinro.wasm && wasm-tools validate out/jinr
 deno run -R --allow-env=BASE_URL regression.ts   # needs `deno task wasm` for the engine
 ```
 
-Needs Lean 4.35.0 (elan), `wasm-tools` and Deno (`scripts/with-lean.sh` installs
-the first two).
+Needs Lean 4.35.0 (elan), `wasm-tools` and Deno (`mise install` at the
+repository root sets up all three).

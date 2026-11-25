@@ -17,7 +17,7 @@ jinro/
 │   ├── WasmGC/strings.wat   # its hand-written runtime for String, Int, ByteArray
 │   └── SIZE.md              # where the bytes go
 ├── research/wasmgc/ # how the backend came about: demos, the List Nat boundary, notes (see its README)
-├── scripts/with-lean.sh  # installs elan and wasm-tools if missing, then runs a command
+├── mise.toml        # tools (Deno, elan, wasm-tools) and the Pages build task
 ├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
 │   ├── client/      # pages / islands; /wasm is the engine playground
 │   └── server/      # router, API, Cloudflare Worker (kept for later use)
@@ -165,8 +165,8 @@ while(today.winner is null){
 
 - Derived from https://github.com/kuboon/deno-remix-tmpl; the template's
   server side and sample features are kept as-is for now.
-- `deno task wasm` builds `lean-engine/` (needs elan and wasm-tools, or run it
-  as `scripts/with-lean.sh deno task wasm`) into
+- `deno task wasm` builds `lean-engine/` (needs elan and wasm-tools: `mise
+  install` sets up both — elan through mise, Lean through elan) into
   `web/client/static/jinro/jinro.wasm` (generated, git-ignored); run it before
   `deno task test`, `deno task dev` or `deno task build`. Size breakdown:
   `lean-engine/SIZE.md` (~115 KB raw, ~32 KB brotli; proofs add nothing).

@@ -21,7 +21,7 @@
     },
     "check": "deno task --cwd web/client check && deno task --cwd web/server check && deno check packages && deno lint && deno fmt --check",
     "wasm": {
-      "description": "Build the engine (lean-engine: Lean, our WasmGC backend; needs elan and wasm-tools) into web/client/static/jinro/jinro.wasm",
+      "description": "Build the engine (lean-engine: Lean, our WasmGC backend; needs elan and wasm-tools: `mise install`) into web/client/static/jinro/jinro.wasm",
       "command": "cd lean-engine && lake build && lake exe emitwasm --js-string Jinro.Wire Jinro.Wire.run > .lake/jinro.wat && wasm-tools parse .lake/jinro.wat -o .lake/jinro.wasm && wasm-tools validate .lake/jinro.wasm && mkdir -p ../web/client/static/jinro && wasm-tools strip --all .lake/jinro.wasm -o ../web/client/static/jinro/jinro.wasm"
     }
   },

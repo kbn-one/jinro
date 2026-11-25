@@ -11,13 +11,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+      # Deno, elan (Lean) and wasm-tools, as mise.toml lists them.
+      - uses: jdx/mise-action@v5
       # The engine (lean-engine: Lean, compiled by our WasmGC backend) goes to
       # web/client/static/jinro/jinro.wasm; the demo and the tests need it.
-      # with-lean.sh installs elan and wasm-tools; `lake build` also checks the proofs.
-      - run: scripts/with-lean.sh deno task wasm
+      # `lake build` also checks the proofs. `mise exec` puts ~/.elan/bin on PATH.
+      - run: mise exec -- deno task wasm
       - run: deno task check
       - run: deno task test
       - run: deno task build
