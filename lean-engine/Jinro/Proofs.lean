@@ -3,7 +3,7 @@ import Jinro.Engine
 /-!
 # Properties of the engine
 
-These are about `Jinro.Engine` itself — the definitions Lasm compiles into the wasm the web demo
+These are about `Jinro.Engine` itself — the definitions compiled into the wasm the web demo
 runs — not about a translation of other code. Proofs are erased at compile time; they cost
 nothing at run time.
 -/

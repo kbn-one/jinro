@@ -2,18 +2,22 @@
 
 ## Project Overview
 
-A monorepo for a werewolf (人狼) game engine. The rules are written in Lean, proved in Lean, and compiled to WASM by [Lasm](https://github.com/Millillion/lasm), with bindings for JavaScript, Ruby, etc.
+A monorepo for a werewolf (人狼) game engine. The rules are written in Lean, proved in Lean, and compiled to WasmGC by our own backend (`lean-engine/WasmGC/`, no Lean C runtime), with bindings for JavaScript, Ruby, etc.
 
 ## Architecture
 
 ```
 jinro/
 ├── docs/CORE_SPEC.md   # rule specification
-├── lean-engine/     # the engine, in Lean; built by Lasm to a WASI command (JSON on stdin -> JSON on stdout)
-│   ├── Jinro/Engine.lean  # the rules
-│   ├── Jinro/Wire.lean    # the JSON protocol
-│   ├── Jinro/Proofs.lean  # theorems about Engine (checked on every build)
-│   └── Main.lean          # stdin -> stdout
+├── lean-engine/     # the engine, in Lean; compiled to a WasmGC module: run(JSON string) -> JSON string
+│   ├── Jinro/Engine.lean    # the rules
+│   ├── Jinro/Wire.lean      # the JSON protocol (`run` is the module's export)
+│   ├── Jinro/Proofs.lean    # theorems about Engine (checked on every build)
+│   ├── WasmGC/Emit.lean     # the backend: Lean IR -> WasmGC text (`lake exe emitwasm`)
+│   ├── WasmGC/strings.wat   # its hand-written runtime for String, Int, ByteArray
+│   └── SIZE.md              # where the bytes go
+├── research/wasmgc/ # how the backend came about: demos, the List Nat boundary, notes (see its README)
+├── mise.toml        # tools (Deno, elan, wasm-tools) and the Pages build task
 ├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
 │   ├── client/      # pages / islands; /wasm is the engine playground
 │   └── server/      # router, API, Cloudflare Worker (kept for later use)
@@ -161,18 +165,22 @@ while(today.winner is null){
 
 - Derived from https://github.com/kuboon/deno-remix-tmpl; the template's
   server side and sample features are kept as-is for now.
-- `deno task wasm` builds `lean-engine/` with Lasm (needs Node 24+) into
+- `deno task wasm` builds `lean-engine/` (needs elan and wasm-tools: `mise
+  install` sets up both — elan through mise, Lean through elan) into
   `web/client/static/jinro/jinro.wasm` (generated, git-ignored); run it before
   `deno task test`, `deno task dev` or `deno task build`. Size breakdown:
-  `lean-engine/SIZE.md` (~820 KiB raw, ~158 KB brotli; proofs add nothing).
-- `web/client/jinro.ts` runs that command per call through a minimal WASI
-  preview 1 implementation (`web/client/wasi.ts`): JSON in on stdin, JSON out
-  on stdout. No transpiler or shim package. The wire format is
-  `lean-engine/Jinro/Wire.lean`; the TypeScript types mirror it.
+  `lean-engine/SIZE.md` (~115 KB raw, ~32 KB brotli; proofs add nothing).
+- `web/client/jinro.ts` instantiates it once and calls `run(request)`: a JSON
+  string in, a JSON string out. Strings cross through the JS String Builtins,
+  or JS stand-ins where those are missing, so only WasmGC is required. The wire
+  format is `lean-engine/Jinro/Wire.lean`; the TypeScript types mirror it.
 - `web/server/engine_regression.test.ts` replays 40 seeded random games
   (`engine_games.ts`) and compares each response's hash with
   `engine_games.fixture.json`. A rules change that alters answers must
   regenerate it on purpose (see `engine_games.ts`).
+- `web/server/engine_protocol.test.ts` checks the exact response text for
+  malformed, non-ASCII and other off-path requests against
+  `engine_protocol.fixture.json` (recorded from the former Lasm build).
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
 
@@ -180,13 +188,14 @@ while(today.winner is null){
 
 1. Change the rules in `lean-engine/Jinro/Engine.lean` (`cd lean-engine && lake build` checks it and the proofs quickly with a local Lean 4.35.0)
 2. State and prove properties in `lean-engine/Jinro/Proofs.lean`
-3. Build WASM: `deno task wasm` (Lasm; `npm run build` in `lean-engine/`)
+3. Build WASM: `deno task wasm` (`lake build`, `lake exe emitwasm`, `wasm-tools`)
 4. Test: `deno task test` (regression fixture, protocol tests), and the `/wasm` page
-5. Implement bindings for each language (same JSON protocol over WASI stdin/stdout)
+5. Implement bindings for each language (same JSON protocol; the host needs WasmGC)
 6. Write tests for bindings
 7. CI/CD for automated build, publish
 
 ## References
 
 - Existing TypeScript implementation: https://github.com/kuboon/jinro.ts
-- Lasm (Lean 4 -> WebAssembly): https://github.com/Millillion/lasm
+- Lasm (Lean 4 -> WebAssembly through Lean's C runtime; the engine's build until 2026-11-24): https://github.com/Millillion/lasm
+- WebAssembly JS String Builtins: https://github.com/WebAssembly/js-string-builtins

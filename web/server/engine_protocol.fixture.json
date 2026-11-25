@@ -1,0 +1,58 @@
+[
+  {
+    "request": "",
+    "response": "{\"error\":\"bad request: offset 0: unexpected end of input\"}"
+  },
+  {
+    "request": "not json",
+    "response": "{\"error\":\"bad request: offset 0: expected: null\"}"
+  },
+  {
+    "request": "[1,2,3]",
+    "response": "{\"error\":\"bad request: missing field `op`\"}"
+  },
+  {
+    "request": "{\"op\":\"nope\"}",
+    "response": "{\"error\":\"bad request: unknown op: nope\"}"
+  },
+  {
+    "request": "{\"op\":\"createVillage\"}",
+    "response": "{\"error\":\"bad request: missing field `rule`\"}"
+  },
+  {
+    "request": "{\"op\":\"createVillage\",\"roles\":[{\"roleType\":\"dragon\"}],\"rule\":{\"vote\":{\"tag\":\"public\"}}}",
+    "response": "{\"error\":\"bad request: unknown role type: dragon\"}"
+  },
+  {
+    "request": "{\"op\":\"createVillage\",\"roles\":[],\"rule\":{\"vote\":{\"tag\":\"public\"}}}",
+    "response": "{\"ok\":{\"today\":{\"creatureStatuses\":[],\"dayNumber\":0,\"winner\":\"villagers\"},\"village\":{\"creatures\":[],\"days\":[],\"rule\":{\"vote\":{\"tag\":\"public\"}}}}}"
+  },
+  {
+    "request": "{\"op\":\"createVillage\",\"roles\":[{\"roleType\":\"wolf\"}],\"rule\":{\"vote\":{\"tag\":\"secret\"}}}",
+    "response": "{\"error\":\"bad request: unknown vote rule: secret\"}"
+  },
+  {
+    "request": "{\"op\":\"createVillage\",\"roles\":[{\"roleType\":\"wolf\"}],\"rule\":{\"vote\":{\"tag\":\"public\"}}",
+    "response": "{\"error\":\"bad request: offset 84: unexpected end of input\"}"
+  },
+  {
+    "request": "  {\"op\" : \"createVillage\" , \"roles\" : [ ] , \"rule\":{\"vote\":{\"tag\":\"public\"}} }  ",
+    "response": "{\"ok\":{\"today\":{\"creatureStatuses\":[],\"dayNumber\":0,\"winner\":\"villagers\"},\"village\":{\"creatures\":[],\"days\":[],\"rule\":{\"vote\":{\"tag\":\"public\"}}}}}"
+  },
+  {
+    "request": "{\"op\":\"createVillage\",\"roles\":[{\"roleType\":\"wolf\",\"opts\":[[\"名前\",\"人狼🐺\"],[\"tab\",\"a\\tb\\u00e9\\ud83d\\ude00\\\"\\\\/\"]]},{\"roleType\":\"seer\",\"opts\":[1.5e3,-0.25,12345678901234,0,true,null,{}]}],\"rule\":{\"vote\":{\"tag\":\"public\"}}}",
+    "response": "{\"ok\":{\"today\":{\"creatureStatuses\":[{\"availableActions\":[],\"id\":\"c1\",\"logIds\":[],\"roleType\":\"wolf\",\"team\":\"wolves\"},{\"availableActions\":[{\"actionType\":\"divine\",\"targets\":[\"c1\"]}],\"id\":\"c2\",\"logIds\":[],\"roleType\":\"seer\",\"team\":\"villagers\"}],\"dayNumber\":0,\"winner\":\"wolves\"},\"village\":{\"creatures\":[{\"id\":\"c1\",\"role\":{\"opts\":[[\"名前\",\"人狼🐺\"],[\"tab\",\"a\\u0009bé😀\\\"\\\\/\"]],\"roleType\":\"wolf\"}},{\"id\":\"c2\",\"role\":{\"opts\":[1500,-0.25,12345678901234,0,true,null,{}],\"roleType\":\"seer\"}}],\"days\":[],\"rule\":{\"vote\":{\"tag\":\"public\"}}}}}"
+  },
+  {
+    "request": "{\"op\":\"processDay\",\"village\":{\"rule\":{\"vote\":{\"tag\":\"public\"}},\"creatures\":[{\"id\":\"c1\",\"role\":{\"roleType\":\"wolf\"}},{\"id\":\"c1\",\"role\":{\"roleType\":\"seer\"}}],\"days\":[]},\"actions\":[]}",
+    "response": "{\"error\":\"duplicate creature id: c1\"}"
+  },
+  {
+    "request": "{\"op\":\"processDay\",\"village\":{\"rule\":{\"vote\":{\"tag\":\"public\"}},\"creatures\":[{\"id\":\"c1\",\"role\":{\"roleType\":\"wolf\"}}],\"days\":[]},\"actions\":[{\"actor\":\"zz\",\"actionType\":\"vote\",\"target\":\"c1\"}]}",
+    "response": "{\"error\":\"unknown creature id: zz\"}"
+  },
+  {
+    "request": "{\"op\":\"processDay\",\"village\":{\"rule\":{\"vote\":{\"tag\":\"public\"}},\"creatures\":[{\"id\":\"🐺\",\"role\":{\"roleType\":\"wolf\"}},{\"id\":\"村\",\"role\":{\"roleType\":\"villager\"}},{\"id\":\"村2\",\"role\":{\"roleType\":\"seer\"}}],\"days\":[]},\"actions\":[{\"actor\":\"🐺\",\"actionType\":\"vote\",\"target\":\"村\"},{\"actor\":\"村2\",\"actionType\":\"divine\",\"target\":\"🐺\"}]}",
+    "response": "{\"ok\":{\"result\":{\"deads\":[\"村\"],\"logs\":[{\"actionType\":\"divine\",\"actor\":\"村2\",\"id\":\"0-0\",\"logResult\":{\"tag\":\"wolf\"},\"receivers\":{\"tag\":\"only\",\"val\":[\"村2\"]},\"target\":\"🐺\"},{\"actionType\":\"vote\",\"id\":\"0-1\",\"logResult\":{\"tag\":\"dead\"},\"receivers\":{\"tag\":\"all\"},\"target\":\"村\"},{\"actionType\":\"vote\",\"id\":\"0-2\",\"logResult\":{\"tag\":\"dead\"},\"receivers\":{\"tag\":\"afterall\"},\"target\":\"村\"}],\"voted\":\"村\"},\"today\":{\"creatureStatuses\":[{\"availableActions\":[{\"actionType\":\"vote\",\"targets\":[\"村2\"]},{\"actionType\":\"bite\",\"targets\":[\"村2\"]}],\"id\":\"🐺\",\"logIds\":[\"0-1\",\"0-2\"],\"roleType\":\"wolf\",\"team\":\"wolves\"},{\"availableActions\":[],\"causeOfDeath\":\"executed\",\"id\":\"村\",\"logIds\":[\"0-1\",\"0-2\"],\"roleType\":\"villager\",\"team\":\"villagers\"},{\"availableActions\":[{\"actionType\":\"vote\",\"targets\":[\"🐺\"]},{\"actionType\":\"divine\",\"targets\":[\"🐺\"]}],\"id\":\"村2\",\"logIds\":[\"0-0\",\"0-1\",\"0-2\"],\"roleType\":\"seer\",\"team\":\"villagers\"}],\"dayNumber\":1,\"winner\":\"wolves\"},\"village\":{\"creatures\":[{\"id\":\"🐺\",\"role\":{\"opts\":[],\"roleType\":\"wolf\"}},{\"id\":\"村\",\"role\":{\"opts\":[],\"roleType\":\"villager\"}},{\"id\":\"村2\",\"role\":{\"opts\":[],\"roleType\":\"seer\"}}],\"days\":[{\"actions\":[{\"actionType\":\"vote\",\"actor\":\"🐺\",\"target\":\"村\"},{\"actionType\":\"divine\",\"actor\":\"村2\",\"target\":\"🐺\"}],\"dayNumber\":0,\"logs\":[{\"actionType\":\"divine\",\"actor\":\"村2\",\"id\":\"0-0\",\"logResult\":{\"tag\":\"wolf\"},\"receivers\":{\"tag\":\"only\",\"val\":[\"村2\"]},\"target\":\"🐺\"},{\"actionType\":\"vote\",\"id\":\"0-1\",\"logResult\":{\"tag\":\"dead\"},\"receivers\":{\"tag\":\"all\"},\"target\":\"村\"},{\"actionType\":\"vote\",\"id\":\"0-2\",\"logResult\":{\"tag\":\"dead\"},\"receivers\":{\"tag\":\"afterall\"},\"target\":\"村\"}]}],\"rule\":{\"vote\":{\"tag\":\"public\"}}}}}"
+  }
+]

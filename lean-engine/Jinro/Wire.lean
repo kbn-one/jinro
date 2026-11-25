@@ -249,4 +249,8 @@ def handle (input : String) : Json :=
   | .ok j => Json.mkObj [("ok", j)]
   | .error e => Json.mkObj [("error", e)]
 
+/-- One JSON request in, one JSON response out: what the wasm module's `run` export does. -/
+def run (input : String) : String :=
+  (handle input).compress
+
 end Jinro.Wire

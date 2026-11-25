@@ -1,8 +1,8 @@
 /-!
 # The jinro rule engine, in Lean
 
-Written as ordinary Lean (arrays, folds, `filter`, `findSome?`): this is the code that runs (Lasm
-compiles it to wasm) and the code the theorems in `Jinro.Proofs` are about. It started as a port
+Written as ordinary Lean (arrays, folds, `filter`, `findSome?`): this is the code that runs (our
+WasmGC backend, `WasmGC/Emit.lean`, compiles it to wasm) and the code the theorems in `Jinro.Proofs` are about. It started as a port
 of an earlier Rust implementation and matched it response for response on 40 random games; that
 record lives on as `web/server/engine_games.fixture.json`.
 

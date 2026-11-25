@@ -1,19 +1,38 @@
 /**
- * The engine as the browser runs it (`client/jinro.ts` + `client/wasi.ts`), from Deno.
- * Needs `deno task wasm` first.
+ * The engine as the browser runs it (`client/jinro.ts`), from Deno. Needs `deno task wasm` first.
  */
 
 import { assertEquals, assertThrows } from "@std/assert";
 
-import { engineFrom } from "../client/jinro.ts";
+import { compileEngine, engineFrom, runFrom } from "../client/jinro.ts";
+import { PROTOCOL_FIXTURE } from "./engine_protocol.ts";
 
-const engine = engineFrom(
-  await WebAssembly.compile(
-    await Deno.readFile(
-      new URL("../client/static/jinro/jinro.wasm", import.meta.url),
-    ),
-  ),
+const bytes = await Deno.readFile(
+  new URL("../client/static/jinro/jinro.wasm", import.meta.url),
 );
+const engine = engineFrom(await compileEngine(bytes));
+
+Deno.test("without the JS String Builtins, the JS stand-ins give the same answers", async () => {
+  // Compiled without `{ builtins: ["js-string"] }`: the module takes jinro.ts's stand-ins.
+  const module = await WebAssembly.compile(bytes);
+  const plain = engineFrom(module);
+  const roles = (["wolf", "seer", "villager"] as const).map((roleType) => ({
+    roleType,
+    opts: [["名前", "人狼🐺"]] as [string, string][],
+  }));
+  const rule = { vote: { tag: "public" as const } };
+  assertEquals(
+    plain.createVillage(roles, rule),
+    engine.createVillage(roles, rule),
+  );
+  const fixture: { request: string; response: string }[] = JSON.parse(
+    await Deno.readTextFile(PROTOCOL_FIXTURE),
+  );
+  const run = runFrom(module);
+  for (const { request, response } of fixture) {
+    assertEquals(run(request), response);
+  }
+});
 
 Deno.test("Day.dayNumber is 0-based and matches Today.dayNumber and log ids", () => {
   const roles = (["villager", "villager", "seer", "wolf"] as const).map((

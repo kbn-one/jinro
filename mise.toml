@@ -3,9 +3,16 @@
 # mise and runs `mise run build` (its default build-command) with BASE_URL set.
 [tools]
 deno = "latest"
-# Lasm (deno task wasm) needs Node 24+.
-node = "latest"
+# elan manages Lean: lake picks the version in lean-engine/lean-toolchain. Its release is the
+# installer, elan-init, which sets up ~/.elan/bin (elan, lake, lean); `when = "always"` runs it
+# even when mise's install is cached, as in CI.
+"github:leanprover/elan" = { version = "4.4.0", postinstall = { run = "elan-init -y --no-modify-path --default-toolchain none", when = "always" } }
+# Turns the backend's WasmGC text into the binary (deno task wasm).
+wasm-tools = "1.263.0"
+
+[env]
+_.path = ["{{ env.HOME }}/.elan/bin"]
 
 [tasks.build]
-description = "Build the engine (Lean via Lasm) for the browser, then the static site into web/dist"
+description = "Build the engine (Lean, our WasmGC backend) for the browser, then the static site into web/dist"
 run = "deno task wasm && deno task build"

@@ -1,0 +1,19 @@
+{
+  "version": "1.3.0",
+  "packagesDir": ".lake/packages",
+  "packages": [
+    {
+      "type": "path",
+      "scope": "",
+      "name": "jinro",
+      "manifestFile": "lake-manifest.json",
+      "inherited": false,
+      "dir": "../../lean-engine",
+      "copy": false,
+      "configFile": "lakefile.toml"
+    }
+  ],
+  "name": "wasmgc",
+  "lakeDir": ".lake",
+  "fixedToolchain": false
+}
