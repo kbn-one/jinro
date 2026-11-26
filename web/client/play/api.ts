@@ -8,6 +8,9 @@
  */
 
 import { routes } from "../routes.ts";
+
+/** Where the game is deployed with its server (the Cloudflare Worker, `cloudflare.yml`). */
+export const PLAY_ORIGIN = "https://jinro.kuboon.workers.dev";
 import type {
   CreateRoomRequest,
   CreateRoomResponse,
@@ -51,7 +54,7 @@ async function call<T>(
   if (!type.includes("json")) {
     throw new ApiError(
       res.status,
-      "このサイトにはゲームのサーバがありません（静的な配信です）。`deno task dev` か Cloudflare で動かしてください。",
+      `このサイトにはゲームのサーバがありません（静的な配信です）。${PLAY_ORIGIN}/play で遊べます。`,
     );
   }
   const json = await res.json();
