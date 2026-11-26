@@ -1,0 +1,53 @@
+name: cloudflare
+
+# Deploys the app to Cloudflare Workers (the `jinro` Worker in cloudflare.config.ts): the static
+# site as Workers static assets, and the Worker that answers /api/* — the room API included, with
+# the engine bundled as a compiled wasm module. GitHub Pages (pages.yml) stays static; this is
+# where the game can actually be played.
+#
+# Needs the repo secrets CLOUDFLARE_API_TOKEN (Workers deploy rights on the account) and
+# TURSO_AUTH_TOKEN (for the `jinro` database the rooms live in).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer push waits for the running one rather than racing it.
+concurrency:
+  group: cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # Deno, elan (Lean) and wasm-tools, as mise.toml lists them.
+      - uses: jdx/mise-action@v5
+      # The engine: web/client/static/jinro/jinro.wasm (lake build also checks the proofs).
+      - run: mise exec -- deno task wasm
+      # Static site (BASE_URL unset: served from the root) + Worker bundle + jinro.wasm,
+      # arranged as the Build Output Specification for `cf deploy --prebuilt`.
+      - run: deno task build:cf
+      # The secrets a first deploy needs, so a new Worker deploys with no manual setup:
+      # RP_SIGNING_KEY_JWK is generated when the Worker lacks it (never rotated here), and
+      # TURSO_AUTH_TOKEN comes from the repo secret when set. See web/server/cf_secrets.ts.
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          secrets="$RUNNER_TEMP/secrets.json"
+          deno run -A web/server/cf_secrets.ts "$secrets"
+          if [ -f "$secrets" ]; then
+            deno task -q cf deploy --prebuilt --secrets-file "$secrets"
+            rm -f "$secrets"
+          else
+            deno task -q cf deploy --prebuilt
+          fi
