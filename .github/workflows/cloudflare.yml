@@ -2,8 +2,8 @@ name: cloudflare
 
 # Deploys the app to Cloudflare Workers (the `jinro` Worker in cloudflare.config.ts): the static
 # site as Workers static assets, and the Worker that answers /api/* — the room API included, with
-# the engine bundled as a compiled wasm module. GitHub Pages (pages.yml) stays static; this is
-# where the game can actually be played.
+# the engine bundled as a compiled wasm module. This is the site's only deploy (GitHub Pages is no
+# longer updated).
 #
 # Needs the repo secrets CLOUDFLARE_API_TOKEN (Workers deploy rights on the account) and
 # TURSO_AUTH_TOKEN (for the `jinro` database the rooms live in).

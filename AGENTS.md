@@ -17,7 +17,7 @@ jinro/
 │   ├── WasmGC/strings.wat   # its hand-written runtime for String, Int, ByteArray
 │   └── SIZE.md              # where the bytes go
 ├── research/wasmgc/ # how the backend came about: demos, the List Nat boundary, notes (see its README)
-├── mise.toml        # tools (Deno, elan, wasm-tools) and the Pages build task
+├── mise.toml        # tools (Deno, elan, wasm-tools) and the full build task
 ├── cloudflare.config.ts  # the `jinro` Worker (deployed by .github/workflows/cloudflare.yml)
 ├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
 │   ├── client/      # pages / islands; /wasm is the engine playground
@@ -197,11 +197,11 @@ while(today.winner is null){
   fragment and poll; a player's page shows only their own view and gives the
   agent instructions (`play/instructions.ts`) to copy. The pages need the API
   (local `deno task dev`, or the Cloudflare Worker, which gets `jinro.wasm` as a
-  bundled module via `cf_build.ts`); on GitHub Pages they point to the Worker.
-- Deploys: `.github/workflows/pages.yml` publishes the static site to GitHub
-  Pages (with PR previews); `.github/workflows/cloudflare.yml` deploys the
+  bundled module via `cf_build.ts`); on a static copy they point to the Worker.
+- Deploys: `.github/workflows/cloudflare.yml` deploys the
   `jinro` Worker (https://jinro.kuboon.workers.dev, static assets + `/api/*`)
-  on every push to main. It needs the repo secrets `CLOUDFLARE_API_TOKEN` and
+  on every push to main; GitHub Pages is no longer updated (the last published
+  copy stays until Pages is turned off in the repository settings). It needs the repo secrets `CLOUDFLARE_API_TOKEN` and
   `TURSO_AUTH_TOKEN` (rooms live in the `jinro` Turso database;
   `RP_SIGNING_KEY_JWK` is generated on the first deploy by `cf_secrets.ts`). Tests: `web/server/rooms.test.ts`, `web/tests/rooms_turso.test.ts`.
 
