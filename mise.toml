@@ -1,6 +1,4 @@
-# Dev tools, and the build the GitHub Pages workflow runs.
-# `.github/workflows/pages.yml` calls kuboon/workflows' reusable Pages workflow, which installs
-# mise and runs `mise run build` (its default build-command) with BASE_URL set.
+# Dev tools, and the full build (`mise run build`: the engine, then the static site into web/dist).
 [tools]
 deno = "latest"
 # elan manages Lean: lake picks the version in lean-engine/lean-toolchain. Its release is the
