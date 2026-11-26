@@ -17,88 +17,18 @@ import {
   loadEngine,
   type Log,
   type RoleType,
-  type Team,
   type Today,
   type Village,
 } from "../jinro.ts";
+import {
+  ACTION_LABEL,
+  PRESETS,
+  RESULT_LABEL,
+  ROLE_LABEL,
+  ROLES,
+  TEAM_LABEL,
+} from "../play/labels.ts";
 import { color, font, radius } from "../tokens.ts";
-
-const ROLES: readonly RoleType[] = [
-  "villager",
-  "seer",
-  "medium",
-  "bodyguard",
-  "wolf",
-  "madman",
-  "hamster",
-  "lover",
-  "bitch",
-];
-
-const ROLE_LABEL: Record<RoleType, string> = {
-  villager: "村人",
-  seer: "占師",
-  medium: "霊媒師",
-  bodyguard: "ボディーガード",
-  wolf: "人狼",
-  madman: "狂人",
-  hamster: "ハムスター",
-  lover: "恋人",
-  bitch: "悪女",
-};
-
-const TEAM_LABEL: Record<Team, string> = {
-  villagers: "村",
-  wolves: "人狼",
-  hamsters: "ハムスター",
-  lovers: "恋人",
-};
-
-const ACTION_LABEL: Record<ActionType, string> = {
-  vote: "投票",
-  unknown: "不明",
-  bite: "噛み",
-  divine: "占い",
-  medium: "霊媒",
-  guard: "護衛",
-  "hamster-curse": "呪殺",
-  love: "求婚",
-  "lovers-suicide": "後追い",
-  "fake-love": "偽求婚",
-};
-
-const RESULT_LABEL: Record<string, string> = {
-  dead: "死亡",
-  guarded: "護衛成功",
-  partnered: "恋人成立",
-  wolf: "人狼",
-  "non-wolf": "人狼ではない",
-  survived: "生存",
-};
-
-const PRESETS: { label: string; counts: Partial<Record<RoleType, number>> }[] =
-  [
-    {
-      label: "基本 7 人",
-      counts: { villager: 3, seer: 1, medium: 1, bodyguard: 1, wolf: 1 },
-    },
-    {
-      label: "狂人・ハムスター入り",
-      counts: {
-        villager: 3,
-        seer: 1,
-        bodyguard: 1,
-        wolf: 2,
-        madman: 1,
-        hamster: 1,
-      },
-    },
-    {
-      label: "恋人入り",
-      counts: { villager: 2, seer: 1, wolf: 1, lover: 1, bitch: 1 },
-    },
-    { label: "最小 3 人", counts: { villager: 1, seer: 1, wolf: 1 } },
-  ];
 
 type Viewer = "public" | "god" | string;
 

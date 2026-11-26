@@ -258,6 +258,7 @@ export function Shell(handle: Handle<ShellProps>) {
           <nav mix={navStyle}>
             <a href={routes.home.href()}>Home</a>
             {/* [feature:jinro-demo] */}
+            <a href={routes.play.index.href()}>あそぶ</a>
             <a href={routes.wasm.href()}>wasm</a>
             <a href={routes.blog.index.href()}>
               Blog

@@ -19,6 +19,10 @@ export default function Home(_handle: Handle) {
         バックエンドで wasm にコンパイルして配布します。
       </p>
       <p>
+        <a href={routes.play.index.href()}>あそぶ →</a>{" "}
+        部屋を作って、みんなで（AI エージェントとも）遊べます。
+      </p>
+      <p>
         <a href={routes.wasm.href()}>wasm デモ →</a>{" "}
         ブラウザで村を作って 1 日ずつ進められます。
       </p>
