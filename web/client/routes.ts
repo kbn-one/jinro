@@ -18,7 +18,7 @@
  *   shapes are stated here — a static deploy simply has no server to answer them.
  */
 
-import { get, post, route } from "@remix-run/fetch-router/routes";
+import { get, post, put, route } from "@remix-run/fetch-router/routes";
 
 import { base } from "./base.ts";
 
@@ -26,6 +26,18 @@ export const routes = route(base, {
   home: get("/"),
   // [feature:jinro-demo] The wasm engine playground.
   wasm: get("/wasm"),
+  // [feature:play] Playing a real game against the room API. Ids and keys travel in the URL
+  // fragment (`#room=…&key=…`), so these stay static pages and keys never reach a server log.
+  play: route("play", {
+    /** Create a room. */
+    index: get("/"),
+    /** The owner's page: who has joined, who has acted, and `go`. */
+    owner: get("/owner"),
+    /** Join a room. */
+    join: get("/join"),
+    /** A player's own page: their role, their actions, what they may see. */
+    me: get("/me"),
+  }),
   // [feature:signin] (the push card on this page is [feature:push])
   my: get("/my"),
   // [feature:fullscreen]
@@ -43,6 +55,16 @@ export const routes = route(base, {
     notify: post("/notify"),
     // [feature:turso] Turso (libSQL) + @remix-run/data-table sample.
     turso: get("/turso"),
+    // [feature:play] The room API (`server/controllers/api/rooms.ts`; types in `play/types.ts`).
+    rooms: route("rooms", {
+      create: post("/"),
+      show: get("/:roomId"),
+      owner: get("/:roomId/owner"),
+      go: post("/:roomId/go"),
+      join: post("/:roomId/players"),
+      me: get("/:roomId/players/:playId"),
+      act: put("/:roomId/players/:playId/actions"),
+    }),
     // [feature:protected-api] DPoP-protected JSON endpoints; `server/router.tsx` puts the DPoP middleware on this group.
     protected: route("protected", {
       get: get("/"),

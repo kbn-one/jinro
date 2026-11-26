@@ -18,9 +18,10 @@ jinro/
 │   └── SIZE.md              # where the bytes go
 ├── research/wasmgc/ # how the backend came about: demos, the List Nat boundary, notes (see its README)
 ├── mise.toml        # tools (Deno, elan, wasm-tools) and the Pages build task
+├── cloudflare.config.ts  # the `jinro` Worker (deployed by .github/workflows/cloudflare.yml)
 ├── web/             # Web app (Deno + Remix v3, from kuboon/deno-remix-tmpl)
 │   ├── client/      # pages / islands; /wasm is the engine playground
-│   └── server/      # router, API, Cloudflare Worker (kept for later use)
+│   └── server/      # router, API (incl. the room API in game/), Cloudflare Worker
 ├── bindings/
 │   ├── js/         # JavaScript/TypeScript bindings
 │   ├── python/     # Python bindings
@@ -183,6 +184,26 @@ while(today.winner is null){
   `engine_protocol.fixture.json` (recorded from the former Lasm build).
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
+- Playing for real (`/play`): `web/server/game/` (rooms as pure `Room → Room`
+  steps, `room.ts`; one `@kuboon/kv` entry per room with optimistic retries,
+  `store.ts` — Turso when `TURSO_DATABASE_URL` is set, memory otherwise; keys,
+  `keys.ts`; the wasm engine on the server, `engine.ts`) behind
+  `/api/rooms/*` (`controllers/api/rooms.ts`; JSON types in
+  `web/client/play/types.ts`). Creating a room gives `roomId` + `roomKey`,
+  joining gives `playId` + `playKey`; keys are `Authorization: Bearer`, stored
+  only as SHA-256. No clock on the server: the owner's `go` starts the game,
+  then ends each day with the actions submitted so far. Pages (`/play`,
+  `/play/owner`, `/play/join`, `/play/me`) carry ids and keys in the URL
+  fragment and poll; a player's page shows only their own view and gives the
+  agent instructions (`play/instructions.ts`) to copy. The pages need the API
+  (local `deno task dev`, or the Cloudflare Worker, which gets `jinro.wasm` as a
+  bundled module via `cf_build.ts`); on GitHub Pages they point to the Worker.
+- Deploys: `.github/workflows/pages.yml` publishes the static site to GitHub
+  Pages (with PR previews); `.github/workflows/cloudflare.yml` deploys the
+  `jinro` Worker (https://jinro.kuboon.workers.dev, static assets + `/api/*`)
+  on every push to main. It needs the repo secrets `CLOUDFLARE_API_TOKEN` and
+  `TURSO_AUTH_TOKEN` (rooms live in the `jinro` Turso database;
+  `RP_SIGNING_KEY_JWK` is generated on the first deploy by `cf_secrets.ts`). Tests: `web/server/rooms.test.ts`, `web/tests/rooms_turso.test.ts`.
 
 ## Development Flow
 

@@ -42,11 +42,17 @@ import * as Fullscreen from "../client/pages/fullscreen.tsx"; // [feature:fullsc
 import * as Home from "../client/pages/index.tsx";
 import * as Wasm from "../client/pages/wasm.tsx"; // [feature:jinro-demo]
 import * as My from "../client/pages/my.tsx";
+// [feature:play]
+import * as PlayIndex from "../client/pages/play/index.tsx";
+import * as PlayOwner from "../client/pages/play/owner.tsx";
+import * as PlayJoin from "../client/pages/play/join.tsx";
+import * as PlayMe from "../client/pages/play/me.tsx";
 
 // [feature:protected-api] / [feature:server-send] / [feature:turso]: the server API.
 import { apiController } from "./controllers/api/controller.ts";
 import { notifyAction } from "./controllers/api/notify.ts";
 import { tursoAction } from "./controllers/api/turso.ts";
+import { roomsController } from "./controllers/api/rooms.ts"; // [feature:play]
 import { jwksAction } from "./controllers/well_known.ts";
 import { copDenied } from "./lib/problem.ts";
 
@@ -151,10 +157,23 @@ const api = createController(routes.api, {
 });
 
 router.map(routes, top);
+// [feature:play] The play pages; which room they show is in the URL fragment.
+router.map(
+  routes.play,
+  createController(routes.play, {
+    actions: {
+      index: pageAction(routes.play.index, PlayIndex),
+      owner: pageAction(routes.play.owner, PlayOwner),
+      join: pageAction(routes.play.join, PlayJoin),
+      me: pageAction(routes.play.me, PlayMe),
+    },
+  }),
+);
 // [feature:blog] Both blog routes at once: the listing, and one article.
 router.map(routes.blog, blogController);
 router.map(routes.api, api);
 router.map(routes.api.protected, apiController); // [feature:protected-api]
+router.map(routes.api.rooms, roomsController); // [feature:play]
 
 router.get(`${base}/static/*path`, ({ request }) => staticFiles.fetch(request));
 router.get(`${assetsPath}/*path`, ({ request }) => assets.fetch(request));
@@ -183,6 +202,10 @@ export const entryPoints: readonly string[] = [
   "/",
   ...ogPaths(),
   "/sw.js", // [feature:push]
+  // [feature:play] Reached only through links the islands build (with a fragment).
+  "/play/owner",
+  "/play/join",
+  "/play/me",
   // [feature:jinro-demo] The engine `client/jinro.ts` fetches at runtime.
   "/static/jinro/jinro.wasm",
   // [feature:helper] The chat's chunk is only named by an attribute on the help button, which a

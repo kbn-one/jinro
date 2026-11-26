@@ -12,7 +12,7 @@ export default defineConfig({
   // Not a secret: it is only an identifier, and the API token is what authorizes.
   accountId: "ac92f36f0a2d84353b137574157f7480",
   worker: {
-    name: "deno-remix-tmpl",
+    name: "jinro",
     compatibilityDate: "2026-10-01",
     entrypoint: "./web/worker-dist/worker.js",
     assets: {
@@ -29,10 +29,11 @@ export default defineConfig({
       // `cloudflare` workflow generates it on the first deploy (`web/server/cf_secrets.ts`), and
       // the `rp-signing-key` workflow rotates it.
       RP_SIGNING_KEY_JWK: bindings.secret(),
-      // [feature:turso] TURSO_AUTH_TOKEN is not declared: the `cloudflare` workflow uploads it from
-      // the repo secret of the same name when that is set, and a deploy keeps existing secrets.
+      // [feature:turso] / [feature:play] The rooms live here: a Worker's isolates share no memory.
+      // TURSO_AUTH_TOKEN is not declared: the `cloudflare` workflow uploads it from the repo secret
+      // of the same name when that is set, and a deploy keeps existing secrets.
       TURSO_DATABASE_URL: bindings.text(
-        "libsql://deno-remix-reference-kuboon.aws-ap-northeast-1.turso.io",
+        "libsql://jinro-kuboon.aws-ap-northeast-1.turso.io",
       ),
     },
   },

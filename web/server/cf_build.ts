@@ -44,13 +44,21 @@ await writeAssets({ root, sourceDirectory: `${root}web/dist` });
 const bundleDir = getWorkerBundleDir(root);
 await Deno.mkdir(bundleDir, { recursive: true });
 await Deno.copyFile(worker, `${bundleDir}/worker.js`);
+// [feature:play] The engine, imported by worker.ts as a compiled wasm module.
+await Deno.copyFile(
+  `${root}web/client/static/jinro/jinro.wasm`,
+  `${bundleDir}/jinro.wasm`,
+);
 await writeWorkerConfig({
   root,
   config,
   manifest: {
     type: "complete",
     mainModule: "worker.js",
-    modules: { "worker.js": { type: "esm" } },
+    modules: {
+      "worker.js": { type: "esm" },
+      "jinro.wasm": { type: "wasm" },
+    },
   },
 });
 console.log("Wrote .cloudflare/output/v0");
