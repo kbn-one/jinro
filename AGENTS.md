@@ -37,18 +37,19 @@ Implemented roles:
 - `seer` :  占師 (0日目夜から占う)
 - `medium` : 霊媒師 (その日に投票で処刑された人物の人狼判定を知る)
 - `bodyguard` : ボディーガード (護衛)
-- `wolf` : 人狼 (襲撃)
+- `wolf` : 人狼 (襲撃。群れで1晩に1人)
 - `madman`: 狂人 (人狼チームの人間)
 - `hamster`: ハムスター人間 (噛まれても死なない、占われると死体になる)
 - `lover` : 恋人 (自分以外の1人に求婚し、2人で恋人チームを形成する)
 - `bitch` : 悪女 (恋人の亜種)
 
 ### 勝利条件
+- 人数は種族で数える: 人狼は `wolf` のみ、人間は人狼でもハムスターでもない全員 (狂人・恋人・悪女を含む)、ハムスターはどちらにも数えない
 - 生存人狼がゼロになるとゲーム終了
   - ハムスターが生存してればハムスター陣営勝利
   - 恋人が揃って生存していたら恋人陣営勝利
   - それ以外なら村チーム勝利
-- 生存人数の過半数が人狼になった時
+- 生存人狼数が生存人間数以上になった時
   - 恋狼が生存している場合は恋狼以外の狼が全滅するか、恋狼が死ぬまで続行
   - 恋狼が生き残れば恋人陣営勝利
   - 恋人がおらず、ハムスターが生存していればハムスター勝利
@@ -182,6 +183,8 @@ while(today.winner is null){
 - `web/server/engine_protocol.test.ts` checks the exact response text for
   malformed, non-ASCII and other off-path requests against
   `engine_protocol.fixture.json` (recorded from the former Lasm build).
+- `web/server/engine_scenarios.test.ts` holds small hand-written games, one rule per
+  test (the pack's single bite, lovers following each other, the head count).
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
 - Playing for real (`/play`): `web/server/game/` (rooms as pure `Room → Room`

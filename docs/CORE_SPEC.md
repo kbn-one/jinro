@@ -26,12 +26,14 @@
 
 ### wolf
 - Day N (N>=1): can bite (only at night, N>=1)
+  - 群れで 1 晩に 1 人だけ襲う: 生存している wolf の bite のうち最多の対象 (同数なら誰も襲わない)
+  - 結果のログは生存している wolf 全員に届く
 
 ### lover
 - love
   - Day 1: must choose partner (love action)
 - suicide
-  - lover or loved が死ぬと相方はその日のうちに死ぬ
+  - lover が死ねば loved が、loved が死ねば lover が、その日のうちに死ぬ (双方向)
 
 ### bitch
 lover と同じだが、 fake_love アクションが追加
@@ -45,8 +47,12 @@ lover と同じだが、 fake_love アクションが追加
 
 ## Victory Rules (Current Implementation)
 - 生存者が2人で、その2人が相互に恋人ペアなら恋人勝利
+- 人数は陣営ではなく種族で数える
+  - 人狼: `wolf` のみ (madman は人間)
+  - 人間: 人狼でもハムスターでもない全員 (madman / lover / bitch / 恋された者を含む)
+  - ハムスターはどちらにも数えない
 - それ以外で生存人狼が 0 人なら村勝利
-- それ以外で生存人狼数 >= 生存村陣営数 なら人狼勝利
+- それ以外で生存人狼数 >= 生存人間数 なら人狼勝利 (madman も人狼陣営として勝利)
 - 上記のいずれかで勝敗が確定し、ハムスターが生存していればハムスター勝利で上書き
 
 ---

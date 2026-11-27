@@ -71,6 +71,26 @@ theorem processDay_no_revive (v : Village) (s : Array Action) (c : Cid)
     (h : isAlive (processDay v s).1 c = true) : isAlive v c = true :=
   isAlive_of_push v _ c h
 
+/-! ## The bite -/
+
+theorem addDeath_size_le (st : DayState) (c : Cid) (a : ActionType) :
+    (st.addDeath c a).deaths.size ≤ st.deaths.size + 1 := by
+  unfold DayState.addDeath
+  split <;> simp
+
+/-- The pack kills at most one creature a night, however many wolves bite. -/
+theorem resolveBite_deaths (v : Village) (g : Option Cid) (as : Array Action) (st : DayState) :
+    (resolveBite v g as st).deaths.size ≤ st.deaths.size + 1 := by
+  unfold resolveBite
+  split
+  · omega
+  · dsimp only
+    split
+    · simp [DayState.addLog]
+    · split
+      · simp [DayState.addLog]
+      · exact addDeath_size_le _ _ _
+
 /-! ## Winning -/
 
 /-- The base rules never name the hamsters; only the final override does. -/

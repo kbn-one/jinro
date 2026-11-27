@@ -111,7 +111,8 @@ structure DayResult where
 def teamOf : RoleType → Team
   | .wolf | .madman => .wolves
   | .lover | .bitch => .lovers
-  -- The hamster counts with the villagers; it only overrides the final winner.
+  -- The hamster has no base team: it is left out of the head count (`baseWinner`) and only
+  -- overrides the final winner.
   | _ => .villagers
 
 /-- Used by divine and medium: any wolves-team role, madman included. -/
@@ -236,20 +237,12 @@ def loveLog (actor target : Cid) (real : Bool) : Log :=
 def firstGuardTarget (actions : Array Action) : Option Cid :=
   (actions.find? (·.actionType == .guard)).bind (·.target)
 
-/-- Effect of one action, according to the actor's role. -/
-def resolveAction (v : Village) (guarded : Option Cid) (st : DayState) (a : Action) : DayState :=
+/-- Effect of one action other than a bite (`resolveBite`), according to the actor's role. -/
+def resolveAction (v : Village) (st : DayState) (a : Action) : DayState :=
   match v.roles[a.actor]? with
   | none => st
   | some role =>
     match a.actionType, role, a.target with
-    | .bite, .wolf, some t =>
-      if guarded == some t then
-        st.addLog (privateLog a.actor .bite (some t) .guarded)
-      else if isHamster v t then
-        -- A hamster survives a bite; nobody learns of it during the game, not even the wolf.
-        st.addLog ⟨.afterall, .bite, some a.actor, some t, some .survived⟩
-      else
-        (st.addLog (privateLog a.actor .bite (some t) .dead)).addDeath t .bite
     | .divine, .seer, some t =>
       let st := st.addLog (privateLog a.actor .divine (some t) (if isWolfRole v t then .wolf else .nonWolf))
       if isHamster v t then st.addDeath t .hamsterCurse else st
@@ -258,11 +251,11 @@ def resolveAction (v : Village) (guarded : Option Cid) (st : DayState) (a : Acti
     | .fakeLove, .bitch, some t => st.addLog (loveLog a.actor t false)
     | _, _, _ => st
 
-/-- Executed creature: the unique target with the most votes (a tie executes nobody). -/
-def computeVoteDeath (actions : Array Action) (n : Nat) : Option Cid :=
+/-- The unique target with the most of the actions `counted` picks out (a tie gives nobody). -/
+def plurality (actions : Array Action) (n : Nat) (counted : Action → Bool) : Option Cid :=
   let counts := actions.foldl (init := Array.replicate n 0) fun cs a =>
-    match a.actionType, a.target with
-    | .vote, some t => if t < n then cs.modify t (· + 1) else cs
+    match counted a, a.target with
+    | true, some t => if t < n then cs.modify t (· + 1) else cs
     | _, _ => cs
   let (_, best, tie) := (Array.range n).foldl (init := ((0 : Nat), (none : Option Cid), false))
     fun (mx, best, tie) c =>
@@ -272,6 +265,34 @@ def computeVoteDeath (actions : Array Action) (n : Nat) : Option Cid :=
       else (mx, best, tie)
   if tie then none else best
 
+/-- Executed creature: the unique target with the most votes (a tie executes nobody). -/
+def computeVoteDeath (actions : Array Action) (n : Nat) : Option Cid :=
+  plurality actions n (·.actionType == .vote)
+
+def isWolfBite (v : Village) (a : Action) : Bool :=
+  a.actionType == .bite && v.roles[a.actor]? == some .wolf
+
+/-- The pack bites one creature a night: the unique target most wolves chose (a tie bites
+    nobody). -/
+def computeBiteTarget (v : Village) (actions : Array Action) : Option Cid :=
+  plurality actions v.roles.size (isWolfBite v)
+
+/-- The pack's one bite. Its log goes to every living wolf, in the name of the first wolf that
+    chose the target. -/
+def resolveBite (v : Village) (guarded : Option Cid) (actions : Array Action) (st : DayState) :
+    DayState :=
+  match computeBiteTarget v actions with
+  | none => st
+  | some t =>
+    let lead := (actions.find? fun a => isWolfBite v a && a.target == some t).map (·.actor)
+    let pack := (creatureIds v).filter fun c => isAlive v c && v.roles[c]? == some .wolf
+    let packLog (r : LogResult) : Log := ⟨.only pack, .bite, lead, some t, some r⟩
+    if guarded == some t then st.addLog (packLog .guarded)
+    else if isHamster v t then
+      -- A hamster survives a bite; nobody learns of it during the game, not even the wolves.
+      st.addLog ⟨.afterall, .bite, lead, some t, some .survived⟩
+    else (st.addLog (packLog .dead)).addDeath t .bite
+
 /-- The medium learns whether the executed creature was a wolf. -/
 def notifyExecution (v : Village) (st : DayState) (executed : Cid) : DayState :=
   let res := if isWolfRole v executed then LogResult.wolf else .nonWolf
@@ -280,11 +301,10 @@ def notifyExecution (v : Village) (st : DayState) (executed : Cid) : DayState :=
       st.addLog (privateLog c .medium (some executed) res)
     else st
 
-/-- Lovers follow their partner in death. -/
+/-- Partners follow each other in death: the one who loved and the one who was loved alike. -/
 def notifyDeath (v : Village) (st : DayState) (dead : Cid) : DayState :=
   (creatureIds v).foldl (init := st) fun st c =>
-    let isLover := v.roles[c]? == some .lover || v.roles[c]? == some .bitch
-    if isAlive v c && !st.isDying c && isLover && partnerOf v st.logs c == some dead then
+    if isAlive v c && !st.isDying c && partnerOf v st.logs c == some dead then
       st.addDeath c .loversSuicide
     else st
 
@@ -322,7 +342,7 @@ def liveActions (v : Village) (submitted : Array Action) : Array Action :=
 def processDay (v : Village) (submitted : Array Action) : Village × DayResult :=
   let actions := liveActions v submitted
   let guarded := firstGuardTarget actions
-  let st := actions.foldl (resolveAction v guarded) {}
+  let st := actions.foldl (resolveAction v) (resolveBite v guarded actions {})
   let voted := computeVoteDeath actions v.roles.size
   let st := match voted with
     | some t => notifyExecution v (st.addDeath t .vote) t
@@ -339,13 +359,15 @@ def baseWinner (v : Village) : Option Team :=
     | [a, b] => partnerOf v #[] a == some b && partnerOf v #[] b == some a
     | _ => false
   if loversWin then some .lovers else
-  let (wolves, others) := alive.foldl (init := (0, 0)) fun (w, o) c =>
-    match v.roles[c]?.map teamOf with
-    | some .wolves => (w + 1, o)
-    | some .lovers => (w, o)
-    | _ => (w, o + 1)
+  -- The count is by species, not by team: wolves are the `wolf` role only; everyone else but the
+  -- hamster is a human (madman, lover and bitch included); the hamster is on neither side.
+  let (wolves, humans) := alive.foldl (init := (0, 0)) fun (w, h) c =>
+    match v.roles[c]? with
+    | some .wolf => (w + 1, h)
+    | some .hamster | none => (w, h)
+    | some _ => (w, h + 1)
   if wolves == 0 then some .villagers
-  else if wolves ≥ others then some .wolves
+  else if wolves ≥ humans then some .wolves
   else none
 
 def hamsterAlive (v : Village) : Bool :=
