@@ -45,15 +45,13 @@ Implemented roles:
 
 ### 勝利条件
 - 人数は種族で数える: 人狼は `wolf` のみ、人間は人狼でもハムスターでもない全員 (狂人・恋人・悪女を含む)、ハムスターはどちらにも数えない
-- 生存人狼がゼロになるとゲーム終了
-  - ハムスターが生存してればハムスター陣営勝利
-  - 恋人が揃って生存していたら恋人陣営勝利
-  - それ以外なら村チーム勝利
-- 生存人狼数が生存人間数以上になった時
-  - 恋狼が生存している場合は恋狼以外の狼が全滅するか、恋狼が死ぬまで続行
-  - 恋狼が生き残れば恋人陣営勝利
-  - 恋人がおらず、ハムスターが生存していればハムスター勝利
-  - 恋狼がいなければ人狼、狂人勝利
+- 恋狼 (相方と揃って生存している狼) は、他に狼が生存している間はどちらにも数えない。狼が恋狼だけになったら人狼として数える
+- 人狼がゼロ、または人狼数が人間数以上になるとゲーム終了
+- 終了時の勝者 (上から順)
+  - 恋人ペアが揃って生存していたら恋人陣営勝利 (恋狼・恋ハムのペアも同じ)
+  - ハムスターが生存していればハムスター勝利
+  - 人狼がゼロなら村チーム勝利
+  - それ以外は人狼、狂人勝利
 
 ### Core Functions
 
@@ -184,7 +182,7 @@ while(today.winner is null){
   malformed, non-ASCII and other off-path requests against
   `engine_protocol.fixture.json` (recorded from the former Lasm build).
 - `web/server/engine_scenarios.test.ts` holds small hand-written games, one rule per
-  test (the pack's single bite, lovers following each other, the head count).
+  test (the pack's single bite, lovers following each other, the head count, who wins).
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
 - Playing for real (`/play`): `web/server/game/` (rooms as pure `Room → Room`

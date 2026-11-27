@@ -93,24 +93,49 @@ theorem resolveBite_deaths (v : Village) (g : Option Cid) (as : Array Action) (s
 
 /-! ## Winning -/
 
-/-- The base rules never name the hamsters; only the final override does. -/
-theorem baseWinner_ne_hamsters (v : Village) : baseWinner v ≠ some .hamsters := by
-  intro h
-  unfold baseWinner at h
-  repeat' (first | split at h | simp at h)
+/-- Nobody wins before the game is over. -/
+theorem gameOver_of_winner (v : Village) (t : Team) (h : winner v = some t) :
+    gameOver v = true := by
+  cases hg : gameOver v <;> simp_all [winner]
 
-/-- The hamsters win only while a hamster is alive. -/
+/-- Once the game is over, somebody wins. -/
+theorem winner_isSome_of_gameOver (v : Village) (h : gameOver v = true) :
+    (winner v).isSome = true := by
+  unfold winner
+  simp only [h]
+  repeat' split
+  all_goals simp_all
+
+/-- The lovers win exactly when the game ends with a couple alive. -/
+theorem winner_lovers_iff (v : Village) :
+    winner v = some .lovers ↔ gameOver v = true ∧ coupleAlive v = true := by
+  cases hg : gameOver v <;> cases hc : coupleAlive v <;> simp [winner, hg, hc] <;>
+    repeat' split
+  all_goals simp_all
+
+/-- The hamsters win only while a hamster is alive, and never over a living couple. -/
 theorem hamsterAlive_of_winner (v : Village) (h : winner v = some .hamsters) :
-    hamsterAlive v = true := by
-  unfold winner at h
-  cases hb : baseWinner v with
-  | none => rw [hb] at h; simp at h
-  | some t =>
-    rw [hb] at h
-    by_cases ha : hamsterAlive v = true
-    · exact ha
-    · simp [ha] at h
-      exact absurd (h ▸ hb) (baseWinner_ne_hamsters v)
+    hamsterAlive v = true ∧ coupleAlive v = false := by
+  cases hg : gameOver v <;> cases hc : coupleAlive v <;> cases hh : hamsterAlive v <;>
+    simp_all [winner] <;> (repeat' split at h) <;> simp_all
+
+/-- The head count sees no wolf only when no wolf at all is alive: a loved wolf is still counted
+    once the rest of the pack is gone. -/
+theorem no_wolves_of_headCount (v : Village) (h : (headCount v).1 = 0) :
+    (aliveIds v).filter (isWolf v) = #[] := by
+  unfold headCount at h
+  dsimp only at h
+  split at h
+  · exact Array.eq_empty_of_size_eq_zero h
+  · rename_i hp
+    exact absurd (Array.isEmpty_iff_size_eq_zero.mpr h) hp
+
+/-- The village wins only with no wolf left alive. -/
+theorem no_wolves_of_winner_villagers (v : Village) (h : winner v = some .villagers) :
+    (aliveIds v).filter (isWolf v) = #[] := by
+  apply no_wolves_of_headCount
+  cases hg : gameOver v <;> cases hc : coupleAlive v <;> cases hh : hamsterAlive v <;>
+    simp_all [winner]
 
 /-! ## Who sees what -/
 

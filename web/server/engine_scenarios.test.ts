@@ -214,3 +214,187 @@ Deno.test("head count: the hamster is on neither side", () => {
     undefined,
   );
 });
+
+const teamOf = (today: Today, id: string) =>
+  today.creatureStatuses.find((s) => s.id === id)!.team;
+
+Deno.test("a couple alive at the end takes the win from the village", () => {
+  const { village, ids } = start(
+    "lover",
+    "villager",
+    "wolf",
+    "villager",
+    "villager",
+  );
+  const loved = play(village, ids, [0, "love", 1]);
+  assertEquals(loved.today.winner, undefined);
+  assertEquals(teamOf(loved.today, ids[1]), "lovers");
+  const { today } = play(
+    loved.village,
+    ids,
+    [0, "vote", 2],
+    [1, "vote", 2],
+    [3, "vote", 2],
+  );
+  assertEquals(today.winner, "lovers");
+});
+
+Deno.test("a couple alive at the end takes the win from the wolves", () => {
+  const { village, ids } = start(
+    "lover",
+    "villager",
+    "wolf",
+    "wolf",
+    "villager",
+    "villager",
+  );
+  const pack: Move[] = [[2, "bite", 4], [3, "bite", 4]];
+  const loved = play(village, ids, [0, "love", 1], ...pack);
+  assertEquals(loved.today.winner, undefined);
+  // Two wolves, two humans: over, and the two humans are the couple.
+  const { today } = play(loved.village, ids, [2, "bite", 5], [3, "bite", 5]);
+  assertEquals(today.winner, "lovers");
+});
+
+Deno.test("a broken couple wins nothing", () => {
+  const { village, ids } = start(
+    "lover",
+    "villager",
+    "wolf",
+    "villager",
+    "villager",
+    "villager",
+  );
+  const loved = play(village, ids, [0, "love", 1], [2, "bite", 1]);
+  assertEquals(dead(loved.today, ids), [0, 1]);
+  const { today } = play(
+    loved.village,
+    ids,
+    [3, "vote", 2],
+    [4, "vote", 2],
+    [5, "vote", 2],
+  );
+  assertEquals(today.winner, "villagers");
+});
+
+Deno.test("a living couple wins over a living hamster", () => {
+  const { village, ids } = start(
+    "lover",
+    "villager",
+    "hamster",
+    "wolf",
+    "villager",
+  );
+  const loved = play(village, ids, [0, "love", 1]);
+  const { today } = play(
+    loved.village,
+    ids,
+    [0, "vote", 3],
+    [1, "vote", 3],
+    [4, "vote", 3],
+  );
+  assertEquals(today.winner, "lovers");
+});
+
+Deno.test("a loved hamster wins with the lovers", () => {
+  const { village, ids } = start(
+    "lover",
+    "hamster",
+    "wolf",
+    "villager",
+    "villager",
+  );
+  const loved = play(village, ids, [0, "love", 1]);
+  assertEquals(teamOf(loved.today, ids[1]), "lovers");
+  const { today } = play(
+    loved.village,
+    ids,
+    [0, "vote", 2],
+    [3, "vote", 2],
+    [4, "vote", 2],
+  );
+  assertEquals(today.winner, "lovers");
+});
+
+Deno.test("with the rest of the pack gone, a loved wolf plays on as the last wolf", () => {
+  const { village, ids } = start(
+    "lover",
+    "wolf",
+    "wolf",
+    "villager",
+    "villager",
+    "villager",
+  );
+  const loved = play(village, ids, [0, "love", 1]);
+  assertEquals(teamOf(loved.today, ids[1]), "lovers");
+  assertEquals(teamOf(loved.today, ids[2]), "wolves");
+  const { today } = play(
+    loved.village,
+    ids,
+    [0, "vote", 2],
+    [1, "vote", 2],
+    [3, "vote", 2],
+  );
+  // One wolf (the loved one) and three humans: not over yet.
+  assertEquals(today.winner, undefined);
+});
+
+Deno.test("a loved wolf is not counted with the pack while another wolf lives", () => {
+  // Two wolves and three humans; without the loved wolf the pack is one.
+  const { village, ids } = start(
+    "lover",
+    "wolf",
+    "wolf",
+    "villager",
+    "villager",
+  );
+  const day1 = play(village, ids, [0, "love", 1], [2, "bite", 3]);
+  // Two wolves, two humans — but the pack is one wolf against two humans.
+  assertEquals(day1.today.winner, undefined);
+  // The pack reaches the humans' number with the couple alive: the lovers win.
+  const day2 = play(day1.village, ids, [2, "bite", 4]);
+  assertEquals(day2.today.winner, "lovers");
+});
+
+Deno.test("the last wolf counts as a wolf even when loved", () => {
+  const { village, ids } = start(
+    "lover",
+    "wolf",
+    "villager",
+    "villager",
+    "villager",
+  );
+  // Loving the only wolf does not end the game.
+  const day1 = play(village, ids, [0, "love", 1]);
+  assertEquals(day1.today.winner, undefined);
+  const day2 = play(day1.village, ids, [1, "bite", 2]);
+  assertEquals(day2.today.winner, undefined);
+  const day3 = play(day2.village, ids, [1, "bite", 3]);
+  assertEquals(day3.today.winner, undefined);
+  // One wolf and one human, its lover: over.
+  const day4 = play(day3.village, ids, [1, "bite", 4]);
+  assertEquals(day4.today.winner, "lovers");
+});
+
+Deno.test("when the loved wolf dies the rest of the pack plays on", () => {
+  const { village, ids } = start(
+    "lover",
+    "wolf",
+    "wolf",
+    "villager",
+    "villager",
+    "villager",
+    "villager",
+  );
+  const loved = play(village, ids, [0, "love", 1]);
+  const { result, today } = play(
+    loved.village,
+    ids,
+    [3, "vote", 1],
+    [4, "vote", 1],
+    [5, "vote", 1],
+  );
+  assertEquals(result.deads, [ids[1], ids[0]]);
+  assertEquals(today.winner, undefined);
+  assertEquals(teamOf(today, ids[2]), "wolves");
+});

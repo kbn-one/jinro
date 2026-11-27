@@ -111,8 +111,7 @@ structure DayResult where
 def teamOf : RoleType → Team
   | .wolf | .madman => .wolves
   | .lover | .bitch => .lovers
-  -- The hamster has no base team: it is left out of the head count (`baseWinner`) and only
-  -- overrides the final winner.
+  -- The hamster has no base team: it is left out of the head count and wins on its own.
   | _ => .villagers
 
 /-- Used by divine and medium: any wolves-team role, madman included. -/
@@ -352,29 +351,56 @@ def processDay (v : Village) (submitted : Array Action) : Village × DayResult :
 
 /-! ## Victory -/
 
-def baseWinner (v : Village) : Option Team :=
-  let alive := aliveIds v
-  let loversWin :=
-    match alive.toList with
-    | [a, b] => partnerOf v #[] a == some b && partnerOf v #[] b == some a
-    | _ => false
-  if loversWin then some .lovers else
-  -- The count is by species, not by team: wolves are the `wolf` role only; everyone else but the
-  -- hamster is a human (madman, lover and bitch included); the hamster is on neither side.
-  let (wolves, humans) := alive.foldl (init := (0, 0)) fun (w, h) c =>
-    match v.roles[c]? with
-    | some .wolf => (w + 1, h)
-    | some .hamster | none => (w, h)
-    | some _ => (w, h + 1)
-  if wolves == 0 then some .villagers
-  else if wolves ≥ humans then some .wolves
-  else none
+/-- `c` and its partner are both alive. -/
+def inLivingCouple (v : Village) (c : Cid) : Bool :=
+  isAlive v c &&
+    match partnerOf v #[] c with
+    | some p => isAlive v p && partnerOf v #[] p == some c
+    | none => false
+
+def coupleAlive (v : Village) : Bool :=
+  (creatureIds v).any (inLivingCouple v)
 
 def hamsterAlive (v : Village) : Bool :=
   (creatureIds v).any fun c => v.roles[c]? == some .hamster && isAlive v c
 
+def isWolf (v : Village) (c : Cid) : Bool :=
+  v.roles[c]? == some .wolf
+
+/-- Living wolves and living humans. The count is by species, not by team: wolves are the `wolf`
+    role only; everyone else but the hamster is a human (madman, lover and bitch included); the
+    hamster is on neither side.
+
+    A wolf in a living couple has left the pack: while any other wolf is alive it is on neither
+    side. Once it is the only kind of wolf left, it counts as a wolf again. -/
+def headCount (v : Village) : Nat × Nat :=
+  let alive := aliveIds v
+  let wolves := alive.filter (isWolf v)
+  let pack := wolves.filter (!inLivingCouple v ·)
+  let humans := alive.filter fun c =>
+    match v.roles[c]? with
+    | some RoleType.wolf | some RoleType.hamster | none => false
+    | some _ => true
+  (if pack.isEmpty then wolves.size else pack.size, humans.size)
+
+/-- The game ends when no wolf is left, or when the wolves (`headCount`) are as many as the
+    humans. -/
+def gameOver (v : Village) : Bool :=
+  let (wolves, humans) := headCount v
+  wolves == 0 || wolves ≥ humans
+
+/-- Who wins once the game is over: a living couple first, then a living hamster, then the
+    village if no wolf is left, the wolves otherwise. -/
 def winner (v : Village) : Option Team :=
-  (baseWinner v).map fun t => if hamsterAlive v then .hamsters else t
+  if !gameOver v then none
+  else if coupleAlive v then some .lovers
+  else if hamsterAlive v then some .hamsters
+  else if (headCount v).1 == 0 then some .villagers
+  else some .wolves
+
+/-- The team a creature plays for: whoever has a partner is with the lovers, whatever the role. -/
+def teamIn (v : Village) (c : Cid) (r : RoleType) : Team :=
+  if (partnerOf v #[] c).isSome then .lovers else teamOf r
 
 /-! ## Views -/
 
@@ -398,7 +424,7 @@ def buildToday (v : Village) : Today :=
     creatureStatuses := (creatureIds v).map fun c =>
       let r := v.roles[c]!
       { role := r
-        team := teamOf r
+        team := teamIn v c r
         availableActions := availableActions v c day
         causeOfDeath := causeOfDeath v c
         visibleLogs := visibleLogs v c w.isSome } }
