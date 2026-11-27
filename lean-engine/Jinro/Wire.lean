@@ -43,13 +43,14 @@ def roleOf : String → M RoleType
 def actionStr : ActionType → String
   | .vote => "vote" | .unknown => "unknown" | .bite => "bite" | .divine => "divine"
   | .medium => "medium" | .guard => "guard" | .hamsterCurse => "hamster-curse" | .love => "love"
-  | .loversSuicide => "lovers-suicide" | .fakeLove => "fake-love"
+  | .loversSuicide => "lovers-suicide" | .fakeLove => "fake-love" | .prevote => "prevote"
 
 def actionOf : String → M ActionType
   | "vote" => pure .vote | "unknown" => pure .unknown | "bite" => pure .bite
   | "divine" => pure .divine | "medium" => pure .medium | "guard" => pure .guard
   | "hamster-curse" => pure .hamsterCurse | "love" => pure .love
   | "lovers-suicide" => pure .loversSuicide | "fake-love" => pure .fakeLove
+  | "prevote" => pure .prevote
   | s => throw s!"bad request: unknown action type: {s}"
 
 def resultStr : LogResult → String
@@ -105,7 +106,7 @@ def Ids.optIdx (ids : Ids) : Option Json → M (Option Cid)
 def Ids.id (ids : Ids) (i : Cid) : String := ids.ids[i]?.getD s!"#{i}"
 
 def actionIn (ids : Ids) (j : Json) : M Action := do
-  pure ⟨← ids.idx (← str (← field j "actor")), ← actionOf (← str (← field j "actionType")),
+  pure ⟨← ids.optIdx (optField j "actor"), ← actionOf (← str (← field j "actionType")),
     ← ids.optIdx (optField j "target")⟩
 
 def receiversIn (ids : Ids) (j : Json) : M Receivers := do
@@ -168,7 +169,7 @@ def tagged (t : String) : Json := Json.mkObj [("tag", t)]
 def idOut (ids : Ids) (i : Cid) : Json := ids.id i
 
 def actionOut (ids : Ids) (a : Action) : Json :=
-  obj [("actor", idOut ids a.actor), ("actionType", (actionStr a.actionType : Json)),
+  obj [("actor", a.actor.map (idOut ids)), ("actionType", (actionStr a.actionType : Json)),
     ("target", a.target.map (idOut ids))]
 
 def logId (day index : Nat) : String := s!"{day}-{index}"
@@ -229,6 +230,7 @@ def processDay (req : Json) : M Json := do
   let (nv, r) := Jinro.processDay src.village actions
   let day := nv.days.size - 1
   let result := obj [("voted", r.voted.map (idOut ids)),
+    ("tied", if r.tied.isEmpty then none else some (Json.arr (r.tied.map (idOut ids)))),
     ("deads", some (Json.arr (r.deaths.map fun d => idOut ids d.creature))),
     ("logs", some (Json.arr ((Array.range r.logs.size).map fun i =>
       logOut ids day i r.logs[i]!)))]

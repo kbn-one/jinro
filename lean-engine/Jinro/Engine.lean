@@ -25,6 +25,8 @@ inductive RoleType where
 inductive ActionType where
   | vote | bite | unknown | guard | divine | love | fakeLove | loversSuicide | medium
   | hamsterCurse
+  /-- A vote of an earlier round, kept for the record only: it is never counted. -/
+  | prevote
   deriving BEq, DecidableEq, Repr, Inhabited
 
 inductive CauseOfDeath where
@@ -45,7 +47,8 @@ inductive Receivers where
   deriving BEq, Repr, Inhabited
 
 structure Action where
-  actor : Cid
+  /-- `none` is the system: the caller's own vote, to break a tie. -/
+  actor : Option Cid
   actionType : ActionType
   target : Option Cid
   deriving BEq, Repr, Inhabited
@@ -102,6 +105,8 @@ structure Death where
 
 structure DayResult where
   voted : Option Cid
+  /-- The candidates with the most votes, when they are several and so nobody is executed. -/
+  tied : Array Cid
   deaths : Array Death
   logs : Array Log
   deriving Repr
@@ -238,38 +243,53 @@ def firstGuardTarget (actions : Array Action) : Option Cid :=
 
 /-- Effect of one action other than a bite (`resolveBite`), according to the actor's role. -/
 def resolveAction (v : Village) (st : DayState) (a : Action) : DayState :=
-  match v.roles[a.actor]? with
+  match a.actor with
+  | none => st
+  | some actor =>
+  match v.roles[actor]? with
   | none => st
   | some role =>
     match a.actionType, role, a.target with
     | .divine, .seer, some t =>
-      let st := st.addLog (privateLog a.actor .divine (some t) (if isWolfRole v t then .wolf else .nonWolf))
+      let st := st.addLog (privateLog actor .divine (some t) (if isWolfRole v t then .wolf else .nonWolf))
       if isHamster v t then st.addDeath t .hamsterCurse else st
-    | .guard, .bodyguard, _ => st.addLog (privateLog a.actor .guard a.target .guarded)
-    | .love, .lover, some t | .love, .bitch, some t => st.addLog (loveLog a.actor t true)
-    | .fakeLove, .bitch, some t => st.addLog (loveLog a.actor t false)
+    | .guard, .bodyguard, _ => st.addLog (privateLog actor .guard a.target .guarded)
+    | .love, .lover, some t | .love, .bitch, some t => st.addLog (loveLog actor t true)
+    | .fakeLove, .bitch, some t => st.addLog (loveLog actor t false)
     | _, _, _ => st
 
-/-- The unique target with the most of the actions `counted` picks out (a tie gives nobody). -/
-def plurality (actions : Array Action) (n : Nat) (counted : Action → Bool) : Option Cid :=
+/-- The targets with the most of the actions `counted` picks out: one, several on a tie, or none
+    when there is no such action. -/
+def topTargets (actions : Array Action) (n : Nat) (counted : Action → Bool) : Array Cid :=
   let counts := actions.foldl (init := Array.replicate n 0) fun cs a =>
     match counted a, a.target with
     | true, some t => if t < n then cs.modify t (· + 1) else cs
     | _, _ => cs
-  let (_, best, tie) := (Array.range n).foldl (init := ((0 : Nat), (none : Option Cid), false))
-    fun (mx, best, tie) c =>
-      let k := counts[c]!
-      if k > mx then (k, some c, false)
-      else if k == mx && mx > 0 then (mx, best, true)
-      else (mx, best, tie)
-  if tie then none else best
+  let mx := counts.foldl max 0
+  if mx == 0 then #[] else (Array.range n).filter fun c => counts[c]! == mx
 
-/-- Executed creature: the unique target with the most votes (a tie executes nobody). -/
+/-- The unique target with the most of the actions `counted` picks out (a tie gives nobody). -/
+def plurality (actions : Array Action) (n : Nat) (counted : Action → Bool) : Option Cid :=
+  let top := topTargets actions n counted
+  if top.size == 1 then top[0]? else none
+
+def isVote (a : Action) : Bool :=
+  match a.actionType with
+  | .vote => true
+  | _ => false
+
+/-- Executed creature: the unique target with the most votes (a tie executes nobody). The engine
+    does not break ties: the caller can hold another round, or add a system vote. -/
 def computeVoteDeath (actions : Array Action) (n : Nat) : Option Cid :=
-  plurality actions n (·.actionType == .vote)
+  plurality actions n isVote
+
+/-- The candidates of a tied vote; empty when somebody is executed or nobody was voted for. -/
+def tiedVote (actions : Array Action) (n : Nat) : Array Cid :=
+  let top := topTargets actions n isVote
+  if top.size > 1 then top else #[]
 
 def isWolfBite (v : Village) (a : Action) : Bool :=
-  a.actionType == .bite && v.roles[a.actor]? == some .wolf
+  a.actionType == .bite && (a.actor.bind (v.roles[·]?)) == some .wolf
 
 /-- The pack bites one creature a night: the unique target most wolves chose (a tie bites
     nobody). -/
@@ -283,7 +303,7 @@ def resolveBite (v : Village) (guarded : Option Cid) (actions : Array Action) (s
   match computeBiteTarget v actions with
   | none => st
   | some t =>
-    let lead := (actions.find? fun a => isWolfBite v a && a.target == some t).map (·.actor)
+    let lead := (actions.find? fun a => isWolfBite v a && a.target == some t).bind (·.actor)
     let pack := (creatureIds v).filter fun c => isAlive v c && v.roles[c]? == some .wolf
     let packLog (r : LogResult) : Log := ⟨.only pack, .bite, lead, some t, some r⟩
     if guarded == some t then st.addLog (packLog .guarded)
@@ -329,9 +349,12 @@ def publishDeaths (st : DayState) : DayState :=
     (st.addLog ⟨.all, publicDeathAction d.cause, none, some d.creature, some .dead⟩).addLog
       ⟨.afterall, d.cause, none, some d.creature, some .dead⟩
 
-/-- An action counts only if its actor exists and is alive at the start of the day. -/
+/-- An action counts only if its actor exists and is alive at the start of the day. The system
+    (no actor) can only vote. -/
 def isLiveAction (v : Village) (a : Action) : Bool :=
-  a.actor < v.roles.size && isAlive v a.actor
+  match a.actor with
+  | some c => c < v.roles.size && isAlive v c
+  | none => isVote a
 
 /-- Dead creatures can neither act nor vote: their actions are dropped first. -/
 def liveActions (v : Village) (submitted : Array Action) : Array Action :=
@@ -347,7 +370,8 @@ def processDay (v : Village) (submitted : Array Action) : Village × DayResult :
     | some t => notifyExecution v (st.addDeath t .vote) t
     | none => st
   let st := publishDeaths (resolveDeathChain v st)
-  ({ v with days := v.days.push ⟨actions, st.logs⟩ }, ⟨voted, st.deaths, st.logs⟩)
+  ({ v with days := v.days.push ⟨actions, st.logs⟩ },
+    ⟨voted, tiedVote actions v.roles.size, st.deaths, st.logs⟩)
 
 /-! ## Victory -/
 

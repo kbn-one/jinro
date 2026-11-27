@@ -10,12 +10,18 @@ nothing at run time.
 
 namespace Jinro
 
-/-- Every action `liveActions` keeps has an actor that exists and is alive. -/
+/-- What `liveActions` lets through: an action of a living creature, or a vote of the system. -/
+def Admissible (v : Village) (a : Action) : Prop :=
+  match a.actor with
+  | some c => c < v.roles.size ∧ isAlive v c = true
+  | none => isVote a = true
+
+/-- Every action `liveActions` keeps has an actor that exists and is alive, or is a system vote. -/
 theorem mem_liveActions {v : Village} {s : Array Action} {a : Action}
-    (h : a ∈ liveActions v s) : a.actor < v.roles.size ∧ isAlive v a.actor = true := by
-  simp only [liveActions, isLiveAction, Array.mem_filter, Bool.and_eq_true,
-    decide_eq_true_eq] at h
-  exact h.2
+    (h : a ∈ liveActions v s) : Admissible v a := by
+  simp only [liveActions, isLiveAction, Array.mem_filter] at h
+  unfold Admissible
+  split <;> simp_all
 
 /-- `processDay` records exactly the live actions as the new day. -/
 theorem processDay_days (v : Village) (s : Array Action) :
@@ -26,7 +32,7 @@ theorem processDay_days (v : Village) (s : Array Action) :
     living actor. -/
 theorem dead_cannot_act (v : Village) (s : Array Action) (d : Day)
     (hd : (processDay v s).1.days.back? = some d) :
-    ∀ a ∈ d.actions, a.actor < v.roles.size ∧ isAlive v a.actor = true := by
+    ∀ a ∈ d.actions, Admissible v a := by
   obtain ⟨logs, h⟩ := processDay_days v s
   rw [h, Array.back?_push] at hd
   cases hd
@@ -70,6 +76,24 @@ theorem isAlive_of_push (v : Village) (d : Day) (c : Cid)
 theorem processDay_no_revive (v : Village) (s : Array Action) (c : Cid)
     (h : isAlive (processDay v s).1 c = true) : isAlive v c = true :=
   isAlive_of_push v _ c h
+
+/-! ## The vote -/
+
+/-- A vote of an earlier round is never counted. -/
+theorem prevote_not_counted (a : Action) (h : a.actionType = .prevote) : isVote a = false := by
+  simp [isVote, h]
+
+/-- Nobody is executed on a tie, and a tie is reported only when nobody is executed. -/
+theorem tiedVote_of_voted (as : Array Action) (n : Nat) (c : Cid)
+    (h : computeVoteDeath as n = some c) : tiedVote as n = #[] := by
+  unfold computeVoteDeath plurality at h
+  unfold tiedVote
+  dsimp only at h ⊢
+  split at h
+  · rename_i h1
+    have : (topTargets as n isVote).size = 1 := by simpa using h1
+    simp [this]
+  · simp at h
 
 /-! ## The bite -/
 

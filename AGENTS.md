@@ -53,6 +53,11 @@ Implemented roles:
   - 人狼がゼロなら村チーム勝利
   - それ以外は人狼、狂人勝利
 
+### 投票
+- 最多票の1人を処刑。同数なら処刑なし。同数の解決 (決選投票、無作為) はエンジンの呼び出し側が行う
+- `process_day` の結果の `tied` が同数の候補。呼び出し側は actor の無い `vote` (システム票) を足すか、決選の票を集め直して呼び直す
+- 決選前の票は `prevote` として渡すと、集計されずに記録だけ残る
+
 ### Core Functions
 
 ```
@@ -86,7 +91,7 @@ type Day {
   logs: Array[Log]
 }
 type Action {
-  actor: CreatureId
+  actor: Option[CreatureId] // none: システム票 (vote のみ)
   action_type: ActionType
   target: Option[CreatureId]
 }
@@ -182,7 +187,8 @@ while(today.winner is null){
   malformed, non-ASCII and other off-path requests against
   `engine_protocol.fixture.json` (recorded from the former Lasm build).
 - `web/server/engine_scenarios.test.ts` holds small hand-written games, one rule per
-  test (the pack's single bite, lovers following each other, the head count, who wins).
+  test (the pack's single bite, lovers following each other, the head count, who wins,
+  tied votes).
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
 - Playing for real (`/play`): `web/server/game/` (rooms as pure `Room → Room`

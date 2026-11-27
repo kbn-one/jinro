@@ -61,6 +61,7 @@ export const ACTION_LABEL: Record<ActionType, string> = {
   love: "求婚",
   "lovers-suicide": "後追い",
   "fake-love": "偽求婚",
+  prevote: "投票 (前の回)",
 };
 
 export const RESULT_LABEL: Record<string, string> = {
