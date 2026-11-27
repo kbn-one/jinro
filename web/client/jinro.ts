@@ -29,7 +29,9 @@ export type ActionType =
   | "hamster-curse"
   | "love"
   | "lovers-suicide"
-  | "fake-love";
+  | "fake-love"
+  /** A vote of an earlier round, kept for the record only: never counted. */
+  | "prevote";
 export type CauseOfDeath = "executed" | "found-dead";
 export type RoleType =
   | "villager"
@@ -60,7 +62,8 @@ export interface Creature {
   role: Role;
 }
 export interface Action {
-  actor: CreatureId;
+  /** Absent for the system's own vote (to break a tie); only a `vote` may lack it. */
+  actor?: CreatureId;
   actionType: ActionType;
   target?: CreatureId;
 }
@@ -103,6 +106,8 @@ export interface Today {
 }
 export interface DayResult {
   voted?: CreatureId;
+  /** The candidates of a tied vote (nobody is executed); absent otherwise. */
+  tied?: CreatureId[];
   deads: CreatureId[];
   logs: Log[];
 }

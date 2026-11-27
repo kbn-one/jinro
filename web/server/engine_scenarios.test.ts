@@ -398,3 +398,95 @@ Deno.test("when the loved wolf dies the rest of the pack plays on", () => {
   assertEquals(today.winner, undefined);
   assertEquals(teamOf(today, ids[2]), "wolves");
 });
+
+Deno.test("a tied vote executes nobody and names the tied candidates", () => {
+  const { village, ids } = start(
+    "villager",
+    "villager",
+    "villager",
+    "villager",
+    "wolf",
+  );
+  const { result } = play(
+    village,
+    ids,
+    [0, "vote", 4],
+    [1, "vote", 4],
+    [2, "vote", 3],
+    [4, "vote", 3],
+  );
+  assertEquals(result.voted, undefined);
+  assertEquals(result.tied, [ids[3], ids[4]]);
+  assertEquals(result.deads, []);
+});
+
+Deno.test("a vote that is not tied names no tied candidates", () => {
+  const { village, ids } = start("villager", "villager", "villager", "wolf");
+  const { result } = play(village, ids, [0, "vote", 3], [1, "vote", 3]);
+  assertEquals(result.voted, ids[3]);
+  assertEquals(result.tied, undefined);
+});
+
+Deno.test("a system vote breaks the tie, and stays in the day's record", () => {
+  const { village, ids } = start(
+    "villager",
+    "villager",
+    "villager",
+    "villager",
+    "wolf",
+  );
+  const votes: Action[] = [
+    { actor: ids[0], actionType: "vote", target: ids[4] },
+    { actor: ids[1], actionType: "vote", target: ids[4] },
+    { actor: ids[2], actionType: "vote", target: ids[3] },
+    { actor: ids[4], actionType: "vote", target: ids[3] },
+  ];
+  const system: Action = { actionType: "vote", target: ids[4] };
+  const [result, next] = engine.processDay(village, [...votes, system]);
+  assertEquals(result.voted, ids[4]);
+  assertEquals(result.tied, undefined);
+  assertEquals(next.days[0].actions, [...votes, system]);
+});
+
+Deno.test("the system can only vote", () => {
+  const { village, ids } = start("villager", "villager", "villager", "wolf");
+  const [result, next] = engine.processDay(village, [
+    { actionType: "bite", target: ids[0] },
+    { actionType: "divine", target: ids[3] },
+  ]);
+  assertEquals(result.deads, []);
+  assertEquals(result.logs, []);
+  assertEquals(next.days[0].actions, []);
+});
+
+Deno.test("votes of an earlier round are recorded but not counted", () => {
+  const { village, ids } = start(
+    "villager",
+    "villager",
+    "villager",
+    "villager",
+    "wolf",
+  );
+  // First round: 2 against 2. Second round: creature 2 changes sides.
+  const { result, village: next } = play(
+    village,
+    ids,
+    [0, "prevote", 4],
+    [1, "prevote", 4],
+    [2, "prevote", 3],
+    [4, "prevote", 3],
+    [0, "vote", 4],
+    [1, "vote", 4],
+    [2, "vote", 4],
+    [4, "vote", 3],
+  );
+  assertEquals(result.voted, ids[4]);
+  assertEquals(
+    next.days[0].actions.filter((a) => a.actionType === "prevote").length,
+    4,
+  );
+  // On their own they execute nobody.
+  const only = play(village, ids, [0, "prevote", 4], [1, "prevote", 4]);
+  assertEquals(only.result.voted, undefined);
+  assertEquals(only.result.tied, undefined);
+});
