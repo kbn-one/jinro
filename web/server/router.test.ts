@@ -1,15 +1,14 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import router from "./router.tsx";
 
-Deno.test("GET / returns the shell with nav links and the runtime script", async () => {
-  const res = await router.fetch(new Request("http://x/"));
+Deno.test("GET /play returns the shell with nav links and the runtime script", async () => {
+  const res = await router.fetch(new Request("http://x/play"));
   assertEquals(res.status, 200);
   assertStringIncludes(res.headers.get("content-type") ?? "", "text/html");
   const html = await res.text();
   assertStringIncludes(html, "<!DOCTYPE html>");
   assertStringIncludes(html, "jinro");
   assertStringIncludes(html, 'href="/wasm"');
-  assertStringIncludes(html, "kuboon.github.io/deno-remix-tmpl");
   assertStringIncludes(html, 'href="/blog"');
   assertStringIncludes(html, '<script type="module" src="/assets/hydration');
   // Soft navigation is the runtime's default now; no frame target attributes.
@@ -115,8 +114,34 @@ Deno.test("GET /fullscreen is a bare page with no shell", async () => {
   assertStringIncludes(html, "FullscreenGame");
 });
 
+// [feature:landing]
+for (
+  const [path, needle] of [
+    ["/", "人狼、はじめよう。"],
+    ["/friends", "チャット機能はありません"],
+    ["/ai", "構想中"],
+    ["/dev", "export interface Engine"],
+  ] as const
+) {
+  Deno.test(`GET ${path} is a landing page: its own frame, no script`, async () => {
+    const res = await router.fetch(new Request(`http://x${path}`));
+    assertEquals(res.status, 200);
+    const html = await res.text();
+    assertStringIncludes(html, needle);
+    assert(!html.includes("<script"), `${path} ships a script`);
+    for (const href of ["/friends", "/ai", "/dev", "/play", "/wasm", "/blog"]) {
+      assertStringIncludes(
+        html,
+        `href="${href}`,
+        `${path}: no link to ${href}`,
+      );
+    }
+  });
+}
+
 Deno.test("HTML responses carry a nonce-based CSP, and every executable tag has the nonce", async () => {
-  for (const path of ["/", "/wasm", "/my"]) {
+  // Pages that boot the runtime; the landing pages (`/`, `/friends`, …) ship no script at all.
+  for (const path of ["/play", "/wasm", "/my"]) {
     const res = await router.fetch(new Request(`http://x${path}`));
     const policy = res.headers.get("content-security-policy") ?? "";
     const nonce = policy.match(/'nonce-([^']+)'/)?.[1];

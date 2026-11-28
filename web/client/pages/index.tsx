@@ -1,126 +1,204 @@
 import { css, type Handle } from "@remix-run/component";
 
+import { Arrow, LandingPage, Mascot, RULE_URL } from "../landing/chrome.tsx";
+import {
+  cardRowStyle,
+  landingFonts,
+  palette,
+  pillStyle,
+  raisedStyle,
+  wrapStyle,
+} from "../landing/styles.ts";
 import { routes } from "../routes.ts";
-import { cardStyle } from "../theme.ts";
 
-export const title = "jinro";
+export const title = "jinro — 人狼、はじめよう";
 export const description =
-  "人狼ゲームエンジン jinro (Lean で書いて証明し、wasm で動かす) の Web ページ。Remix v3 + Deno。";
+  "ゲームマスター役を引き受ける人狼エンジン jinro。友達と遊ぶ、AI で遊ぶ、開発者として組み込む。";
 
-/** The shell places the sign-in island, so every page boots the runtime. */
-export const hydrate = true;
+/** No islands: the landing pages ship no JavaScript. */
+export const hydrate = false;
+/** Full-width bands; the header and footer are `LandingPage`'s. */
+export const bare = true;
+export const stylesheets = [landingFonts];
+
+/** The three ways in. */
+const choices = [
+  {
+    href: routes.friends.href(),
+    color: palette.yellow,
+    eyebrow: "いますぐ遊べる",
+    title: "友達と遊ぶ",
+    body:
+      "部屋を作って URL を配るだけ。チャットはいつもの LINE やビデオ通話で。",
+    more: "遊び方を見る",
+    icon:
+      "M17 24a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM33 25a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM5 40c1-8 6-12 12-12s11 4 12 12M28 40c.5-6 3-9 6-9 4 0 8 3 9 9",
+  },
+  {
+    href: routes.ai.href(),
+    color: palette.lilac,
+    eyebrow: "構想中",
+    title: "AI で遊ぶ",
+    body: "自分の AI を村に送り込んだり、ほかの人の AI と対戦させたり。",
+    more: "構想を見る",
+    icon:
+      "M16 14h16a7 7 0 0 1 7 7v10a7 7 0 0 1-7 7H16a7 7 0 0 1-7-7V21a7 7 0 0 1 7-7ZM24 6v8M18 25h.01M30 25h.01M19 31h10M4 24v6M44 24v6",
+  },
+  {
+    href: routes.dev.href(),
+    color: palette.mint,
+    eyebrow: "エンジンを使う",
+    title: "開発者の方",
+    body: "純粋関数ふたつで人狼が回る。自分のアプリやボットに組み込めます。",
+    more: "しくみを見る",
+    icon: "M17 14L7 24l10 10M31 14l10 10-10 10M27 9l-6 30",
+  },
+];
 
 export default function Home(_handle: Handle) {
   return () => (
-    <>
-      <h1>jinro</h1>
-      <p>
-        人狼ゲームエンジン。ルールを Lean で書いて性質を証明し、自作の WasmGC
-        バックエンドで wasm にコンパイルして配布します。
-      </p>
-      <p>
-        <a href={routes.play.index.href()}>あそぶ →</a>{" "}
-        部屋を作って、みんなで（AI エージェントとも）遊べます。
-      </p>
-      <p>
-        <a href={routes.wasm.href()}>wasm デモ →</a>{" "}
-        ブラウザで村を作って 1 日ずつ進められます。
-      </p>
-
-      <h2>この Web アプリの土台</h2>
-      <p>
-        <a href="https://github.com/kuboon/deno-remix-tmpl">
-          deno-remix-tmpl
-        </a>{" "}
-        (Deno + Remix v3) から作っています。以下はテンプレのサンプル機能です。
-      </p>
-      <p>
-        デモ:{" "}
-        <a href="https://kuboon.github.io/deno-remix-tmpl/">
-          GitHub Pages (静的版)
-        </a>
-        {" / "}
-        <a href="https://deno-remix-tmpl.kuboon.workers.dev/">
-          Cloudflare Workers (サーバー版)
-        </a>
-      </p>
-
-      <section mix={cardStyle}>
-        <h2>構成</h2>
-        <ul mix={listStyle}>
-          <li>
-            <code>packages/remix-dpop-session-middleware/</code>{" "}
-            — DPoP セッション middleware (Remix v3 fetch-router)
-          </li>
-          <li>
-            <code>packages/session-storage-kv/</code>{" "}
-            — Remix v3 SessionStorage を KvRepo で実装
-          </li>
-          <li>
-            <code>web/</code> — この Web アプリ。<code>client/</code>{" "}
-            がブラウザへ渡るもの全て、<code>server/</code> がルーターと API
-          </li>
-        </ul>
-      </section>
-
-      <section mix={cardStyle}>
-        <h2>デプロイ</h2>
+    <LandingPage current="home">
+      <section mix={[wrapStyle, heroStyle]}>
+        <div aria-hidden="true" mix={mascotsStyle}>
+          <Mascot size={64} fill={palette.mint} />
+          <Mascot size={88} />
+          <Mascot size={64} fill={palette.lilac} />
+        </div>
+        <h1>人狼、はじめよう。</h1>
         <p>
-          同じ <code>web/server/router.tsx</code>{" "}
-          から静的サイトを作り、2 通りに配信します。
+          jinro
+          はゲームマスター役をまるごと引き受ける人狼エンジンです。役職を配り、夜の行動をさばき、勝ち負けを判定します。どう遊びますか？
         </p>
-        <ul mix={listStyle}>
-          <li>
-            <strong>Cloudflare Workers</strong>{" "}
-            — 静的ビルドを Workers の static assets として配信し、<code>
-              /api/*
-            </code>{" "}
-            だけを Worker (<code>web/server/worker.ts</code>) が答える。
-          </li>
-          <li>
-            <strong>GitHub Pages</strong>{" "}
-            — ビルドが同じルーターをクロールして 静的 HTML にする。<code>
-              /api/*
-            </code>{" "}
-            は静的化しない。
-          </li>
-        </ul>
       </section>
 
-      <section mix={cardStyle}>
-        <h2>API エンドポイント (Cloudflare Workers のみ)</h2>
-        <ul mix={listStyle}>
-          <li>
-            <code>GET {routes.api.protected.get.href()}</code>{" "}
-            — DPoP proof 必須。セッションデータを返す
-          </li>
-          <li>
-            <code>POST {routes.api.protected.post.href()}</code>{" "}
-            — DPoP proof 必須。リクエスト body をセッションにマージ
-          </li>
-          <li>
-            <code>POST {routes.api.notify.href()}</code>{" "}
-            — サーバー起点のプッシュ通知 (id.kbn.one 経由)
-          </li>
-          <li>
-            <code>GET {routes.api.turso.href()}</code> — Turso (libSQL) +{" "}
-            <code>@remix-run/data-table</code> のサンプル
-          </li>
-          <li>
-            <code>GET {routes.jwks.href()}</code> — RP の公開 JWKS
-          </li>
-        </ul>
+      <section aria-label="遊び方を選ぶ" mix={[wrapStyle, choicesStyle]}>
+        <div mix={cardRowStyle}>
+          {choices.map((c) => (
+            <a href={c.href} mix={[choiceStyle(c.color), raisedStyle()]}>
+              <svg
+                width="56"
+                height="56"
+                viewBox="0 0 48 48"
+                fill="none"
+                stroke={palette.ink}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d={c.icon} />
+              </svg>
+              <span mix={eyebrow}>{c.eyebrow}</span>
+              <span mix={choiceTitle}>{c.title}</span>
+              <span mix={choiceBody}>{c.body}</span>
+              <span mix={choiceMore}>
+                {c.more}
+                <Arrow />
+              </span>
+            </a>
+          ))}
+        </div>
       </section>
 
-      <p>
-        <a href={routes.blog.index.href()}>ブログ →</a>{" "}
-        <a href={routes.my.href()}>マイページ →</a>
-      </p>
-    </>
+      <section mix={[wrapStyle, ruleSectionStyle]}>
+        <div mix={ruleBoxStyle}>
+          <div>
+            <h2>ルールと役職</h2>
+            <p>
+              村人・占師・霊媒師・ボディーガード・人狼・狂人・ハムスター・恋人・悪女。詳しいルールは別ページにまとめています。
+            </p>
+          </div>
+          <a href={RULE_URL} mix={pillStyle(palette.ink, palette.white)}>
+            ルールを読む
+          </a>
+        </div>
+      </section>
+    </LandingPage>
   );
 }
 
-const listStyle = css({
-  paddingLeft: "1.1rem",
-  "& li": { marginBlock: "0.4rem" },
+const heroStyle = css({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  textAlign: "center",
+  gap: "1.25rem",
+  paddingBlock: "4.5rem 2.5rem",
+  "& h1": {
+    margin: 0,
+    fontSize: "clamp(2.4rem, 6vw, 4rem)",
+    lineHeight: 1.25,
+    fontWeight: 800,
+  },
+  "& p": {
+    margin: 0,
+    maxWidth: "34rem",
+    fontSize: "1.125rem",
+    color: palette.quiet,
+  },
+});
+
+const mascotsStyle = css({
+  display: "flex",
+  alignItems: "flex-end",
+  gap: "0.9rem",
+});
+
+const choicesStyle = css({ paddingBlock: "1rem 5.5rem" });
+
+const choiceStyle = (background: string) =>
+  css({
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.9rem",
+    padding: "2rem 1.75rem",
+    background,
+    color: palette.ink,
+    border: `2px solid ${palette.ink}`,
+    borderRadius: "1.5rem",
+    textDecoration: "none",
+    transition: "transform 120ms ease, box-shadow 120ms ease",
+    "&:hover": {
+      transform: "translate(-2px, -2px)",
+      boxShadow: `8px 8px 0 ${palette.ink}`,
+    },
+  });
+
+const eyebrow = css({
+  fontSize: "0.8rem",
+  fontWeight: 700,
+  letterSpacing: "0.1em",
+});
+
+const choiceTitle = css({
+  fontSize: "1.75rem",
+  fontWeight: 800,
+  lineHeight: 1.3,
+});
+
+const choiceBody = css({ fontSize: "0.95rem", color: palette.sub });
+
+const choiceMore = css({
+  marginTop: "auto",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.4rem",
+  fontWeight: 800,
+});
+
+const ruleSectionStyle = css({ paddingBottom: "5.5rem" });
+
+const ruleBoxStyle = css({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "1rem 2rem",
+  padding: "1.75rem 2rem",
+  background: palette.white,
+  border: `2px solid ${palette.ink}`,
+  borderRadius: "1.5rem",
+  "& > div": { flex: "1 1 20rem", minWidth: 0 },
+  "& h2": { margin: "0 0 0.25rem", fontSize: "1.4rem", fontWeight: 800 },
+  "& p": { margin: 0, fontSize: "0.95rem", color: palette.quiet },
 });

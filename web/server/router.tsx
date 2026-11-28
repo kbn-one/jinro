@@ -40,6 +40,9 @@ import { routes } from "../client/routes.ts";
 import { blogController } from "./blog/mod.tsx"; // [feature:blog]
 import * as Fullscreen from "../client/pages/fullscreen.tsx"; // [feature:fullscreen]
 import * as Home from "../client/pages/index.tsx";
+import * as Friends from "../client/pages/friends.tsx"; // [feature:landing]
+import * as Ai from "../client/pages/ai.tsx"; // [feature:landing]
+import * as Dev from "../client/pages/dev.tsx"; // [feature:landing]
 import * as Wasm from "../client/pages/wasm.tsx"; // [feature:jinro-demo]
 import * as My from "../client/pages/my.tsx";
 // [feature:play]
@@ -81,6 +84,7 @@ function pageAction(route: { href(): string }, page: PageModule) {
         image={image}
         viewport={page.viewport}
         bare={page.bare}
+        stylesheets={page.stylesheets}
         script={page.hydrate ? clientRuntime : null}
       >
         <Page />
@@ -135,6 +139,9 @@ declare module "@remix-run/fetch-router" {
 const top = createController(routes, {
   actions: {
     home: pageAction(routes.home, Home),
+    friends: pageAction(routes.friends, Friends), // [feature:landing]
+    ai: pageAction(routes.ai, Ai), // [feature:landing]
+    dev: pageAction(routes.dev, Dev), // [feature:landing]
     wasm: pageAction(routes.wasm, Wasm), // [feature:jinro-demo]
     // [feature:fullscreen]
     fullscreen: pageAction(routes.fullscreen, Fullscreen),

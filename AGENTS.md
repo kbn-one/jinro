@@ -182,6 +182,12 @@ while(today.winner is null){
 - `web/server/engine_protocol.test.ts` checks the exact response text for
   malformed, non-ASCII and other off-path requests against
   `engine_protocol.fixture.json` (recorded from the former Lasm build).
+- Landing pages: `/` offers three ways in — `/friends` (play with friends; the
+  `/play` screens drawn from the islands' own styles), `/ai` (planned AI play)
+  and `/dev` (the engine's interface). They are `bare` pages with their own
+  header and footer and their own light palette (`web/client/landing/`), link
+  the M PLUS Rounded 1c web font, ship no JavaScript, and send rule details to
+  https://jinro-rule.kbn.one/.
 - `/wasm` (`web/client/pages/wasm.tsx`, `islands/jinro_demo.tsx`) lets you
   create a village and step through days on the real wasm component.
 - Playing for real (`/play`): `web/server/game/` (rooms as pure `Room → Room`

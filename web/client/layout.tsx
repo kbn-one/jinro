@@ -75,6 +75,12 @@ export interface LayoutProps {
    */
   bare?: boolean;
   /**
+   * Stylesheets of the page's own, linked after `app.css` — a web font, in practice.
+   *
+   * Absolute URLs as they are written; the shell adds nothing to them.
+   */
+  stylesheets?: readonly string[];
+  /**
    * The client runtime, for a page that places an island — resolved by `router.tsx`, because a URL
    * under the deploy prefix and the bundler's naming is a thing only the server knows.
    *
@@ -137,6 +143,8 @@ export interface PageModule<Props = Record<string, never>> {
   viewport?: string;
   /** Set by a page that is the whole screen — see {@link LayoutProps.bare}. */
   bare?: boolean;
+  /** Set by a page that links stylesheets of its own — see {@link LayoutProps.stylesheets}. */
+  stylesheets?: readonly string[];
 }
 
 /**
@@ -184,6 +192,9 @@ export function Layout(handle: Handle<LayoutProps>) {
           }
           <meta name={BASE_META_NAME} content={base} />
           <link rel="stylesheet" href={`${base}/static/app.css`} />
+          {(props.stylesheets ?? []).map((href) => (
+            <link key={href} rel="stylesheet" href={href} />
+          ))}
           <link
             rel="icon"
             type="image/svg+xml"
