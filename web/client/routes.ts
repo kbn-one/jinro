@@ -10,7 +10,7 @@
  *
  * Two kinds of route live here and they are deployed differently:
  *
- * - **Pages** (`home`, `wasm`, `my`) are rendered to static HTML by the GitHub Pages build as
+ * - **Pages** (`home`, `friends`, `ai`, `dev`, `wasm`, `my`) are rendered to static HTML by the GitHub Pages build as
  *   well as served from the static build by Cloudflare.
  * - **Server routes** (`jwks` and everything under `api`) only exist on the live server. Nothing
  *   links to them, so the static build's crawl never reaches them, and they are not in
@@ -24,6 +24,10 @@ import { base } from "./base.ts";
 
 export const routes = route(base, {
   home: get("/"),
+  // [feature:landing] The three ways in, linked from the home page (`client/landing/`).
+  friends: get("/friends"),
+  ai: get("/ai"),
+  dev: get("/dev"),
   // [feature:jinro-demo] The wasm engine playground.
   wasm: get("/wasm"),
   // [feature:play] Playing a real game against the room API. Ids and keys travel in the URL
